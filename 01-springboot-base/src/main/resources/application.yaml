@@ -1,0 +1,10 @@
+# 配置端口（不配置默认8080）
+server:
+  port: 8080
+
+spring:
+  mvc:
+    # 视图解析器配置
+    view:
+      prefix: /
+      suffix: .html
