@@ -9,10 +9,13 @@ Spring Boot 学习项目。采用 **Maven 多模块聚合工程** 组织，按�
 | 模块 | 主题 | 状态 |
 | --- | --- | --- |
 | [01-springboot-base](01-springboot-base/README.md) | 基础入门：启动类、配置文件、静态资源、Spring MVC / REST 控制器 | ✅ 已完成 |
-| 02-springboot-thymeleaf | 模板引擎 Thymeleaf | ⬜ 规划中 |
+| [02-springboot-advice](02-springboot-advice/README.md) | 响应包装 + 全局异常 + 统一日志 | ✅ 已完成 |
 | 03-springboot-mybatis | 持久层 MyBatis | ⬜ 规划中 |
+| 04-springboot-mybatis-plus | 持久层 MyBatis-Plus | ⬜ 规划中 |
 
 > 后续模块只作为 `pom.xml` 中的 `<module>` 追加，约定沿用「`序号-springboot-主题`」的命名方式。
+
+> **接口响应约定**（自 02 模块起）：业务成功还是失败**一律看响应体里的 `code`**——`SUC0000` 表示成功，其他值对应 `ErrorCode`；业务异常（`BizException`）连 HTTP 状态码也是 `200`。框架层面的异常（方法不支持 `405`、缺参数 / 请求体解析失败 `400` 等）会保留真实的 HTTP 状态码，但响应体同样是统一的 `Result`。后续模块都遵循这个约定，详见 [02 模块 README](02-springboot-advice/README.md)。
 
 ## 项目结构
 
@@ -20,8 +23,9 @@ Spring Boot 学习项目。采用 **Maven 多模块聚合工程** 组织，按�
 SpringBoot-Learning
 ├── pom.xml                     # 父 POM：聚合模块 + 统一版本与公共依赖
 ├── 01-springboot-base          # 01 基础模块
-├── 02-springboot-thymeleaf     # 预留
-└── 03-springboot-mybatis       # 预留
+├── 02-springboot-advice        # 响应包装 + 全局异常 + 统一日志
+├── 03-springboot-mybatis       # 预留
+└── 04-springboot-mybatis-plus  # 预留
 ```
 
 ## 技术栈与环境
@@ -35,12 +39,13 @@ SpringBoot-Learning
 
 ## 父 POM 做了什么
 
-父工程 `com.hyao:SpringBoot-Learning:1.0-SNAPSHOT` 的 `packaging` 为 `pom`，本身不打可执行包，只承担三件事：
+父工程 `com.hyao:SpringBoot-Learning:1.0.0-SNAPSHOT` 的 `packaging` 为 `pom`，本身不打可执行包，只承担三件事：
 
 1. **模块聚合**
    ```xml
    <modules>
        <module>01-springboot-base</module>
+       <module>02-springboot-advice</module>
    </modules>
    ```
    新增模块时在这里追加 `<module>` 即可，父工程会自动把它纳入同一个工程统一管理（依赖版本、公共依赖都跟着走）。
@@ -69,9 +74,12 @@ SpringBoot-Learning
    | --- | --- | --- |
    | `spring-boot-starter-web` | compile | Web 起步依赖（内嵌 Tomcat + Spring MVC + Jackson） |
    | `spring-boot-devtools` | runtime / optional | 热部署，代码变更后自动重启应用上下文 |
+   | `spring-boot-configuration-processor` | compile / optional | 编译期生成配置元数据，让 IDE 在 `application.yaml` 里对自定义配置项做提示与补全 |
    | `lombok` | provided / optional | 编译期生成 getter/setter 等样板代码，不参与打包 |
+   | `commons-io` | compile | 通用 IO 工具类。**不在 Spring Boot BOM 的管理范围内**，所以必须显式写 `<version>` |
+   | `commons-lang3` | compile | 字符串 / 集合等工具类（02 模块的 `TraceIdFilter` 用了 `StringUtils`）。**在 BOM 管理范围内**，所以不写 `<version>` |
 
-   后两个依赖（`devtools`、`lombok`）都标了 `optional=true`，表示不会被传递给「依赖本项目的其他项目」；
+   带 `optional=true` 的三个依赖（`devtools`、`configuration-processor`、`lombok`）不会被传递给「依赖本项目的其他项目」；
    `devtools` 用 `runtime` 是因为只在运行时起作用，编译时用不到；
    `lombok` 用 `provided` 是因为它只参与编译，编译完成后 jar 包不需要打进去。
 
@@ -88,5 +96,7 @@ SpringBoot-Learning
 
 本项目以**代码层面的学习**为主，不涉及构建、打包与部署，所以这里不展开 Maven 命令。
 
-git 拉下项目后，用 IDEA 打开（Maven 工程会自动导入），然后直接运行对应模块的启动类即可，比如 [`BaseApplication`](01-springboot-base/src/main/java/com/hyao/base/BaseApplication.java)，启动后监听默认端口 8080。
+git 拉下项目后，用 IDEA 打开（Maven 工程会自动导入），然后直接运行对应模块的启动类即可，比如 [`BaseApplication`](01-springboot-base/src/main/java/com/hyao/base/BaseApplication.java)。
+
+各模块的端口写在各自的 `application.yaml` 里——[01 是 8080](01-springboot-base/src/main/resources/application.yaml)、[02 是 8081](02-springboot-advice/src/main/resources/application.yaml)，互不冲突，可以同时启动。
 

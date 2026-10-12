@@ -90,13 +90,13 @@ classpath:/public/
 
 `@Controller` 类中的方法返回 **字符串时表示视图名**，不会直接写入响应体，而是交给视图解析器处理。
 
-本项目 **没有引入模板引擎**（Thymeleaf 在 02 模块学习），所以走的是 Spring MVC 默认的视图解析器 `InternalResourceViewResolver`，它把视图名拼接成转发路径：
+本项目 **没有引入模板引擎**（Thymeleaf 等模板技术后续再单独学），所以走的是 Spring MVC 默认的视图解析器 `InternalResourceViewResolver`，它把视图名拼接成转发路径：
 
 ```
 prefix + 视图名 + suffix
 ```
 
-`application.yaml` 中配置 `prefix=/`、`suffix=.html`，因此返回 `"index"` 最终会 **转发** 到 `/index.html`，也就是上面那个静态页面。换成 Thymeleaf 后这个解析器会被模板引擎的解析器取代。
+`application.yaml` 中配置 `prefix=/`、`suffix=.html`，因此返回 `"index"` 最终会 **转发** 到 `/index.html`，也就是上面那个静态页面。如果以后引入模板引擎，这个解析器就会被模板引擎自己的视图解析器取代。
 
 ### 4.2 类级与方法级 `@RequestMapping`
 
@@ -288,5 +288,3 @@ public class User {
 | 消息转换器与 JSON 序列化 | `MyRestController` + Jackson |
 | Lombok、`@JsonFormat`、无参构造的坑 | `User` |
 | 热部署 | `spring-boot-devtools` |
-
-下一步可以继续学习：模板引擎 Thymeleaf（02 模块）、持久层 MyBatis（03 模块）。
