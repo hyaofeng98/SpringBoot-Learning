@@ -3,7 +3,6 @@ package com.hyao.advice.controller;
 import com.hyao.advice.common.BizErrorCode;
 import com.hyao.advice.model.User;
 import com.hyao.common.exception.BizException;
-import com.hyao.common.exception.ErrorCode;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -27,7 +26,7 @@ public class ErrorController {
     @PostMapping("/user")
     public User getUser() {
         // 查询用户...
-        throw new BizException(ErrorCode.QUERY_ERROR, "查询用户为空！");
+        throw new BizException(BizErrorCode.QUERY_ERROR, "查询用户为空！");
     }
 
 }

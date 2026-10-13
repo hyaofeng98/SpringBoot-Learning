@@ -10,8 +10,8 @@
 
 | 包 | 内容 | 说明 |
 | --- | --- | --- |
-| `model` | `Result`、`ErrorCode` | 统一响应体 + 错误码枚举 |
-| `com.hyao.common.exception` | `BizException`、`GlobalExceptionHandler` | 业务异常 + 全局异常处理（继承 `ResponseEntityExceptionHandler`） |
+| `com.hyao.common.model` | `Result` | 统一响应体 |
+| `com.hyao.common.exception` | `IErrorCode`、`SysErrorCode`、`BizException`、`GlobalExceptionHandler` | 错误码接口 + 系统级错误码 + 业务异常 + 全局异常处理（继承 `ResponseEntityExceptionHandler`） |
 | `com.hyao.common.advice` | `IgnoreWrapper`、`ResponseWrapperAdvice` | 跳过包装注解 + 响应包装（`ResponseBodyAdvice`） |
 | `com.hyao.common.log` | `TraceIdUtils`、`TraceIdFilter` | MDC 工具类 + traceId 过滤器 |
 | `com.hyao.common.autoconfigure` | `CommonWebAutoConfiguration` | 把上面的 Bean 注册进使用方的容器 |
@@ -27,18 +27,66 @@
     │   ├── autoconfigure
     │   │   └── CommonWebAutoConfiguration.java # 自动配置：注册下面这些 Bean
     │   ├── exception
+    │   │   ├── IErrorCode.java                 # 错误码接口：业务模块实现它来扩展自己的错误码
+    │   │   ├── SysErrorCode.java               # 系统级错误码枚举（SYS0001 / SYS0002）
     │   │   ├── BizException.java               # 业务异常
     │   │   └── GlobalExceptionHandler.java     # 全局异常处理
     │   ├── log
     │   │   ├── TraceIdFilter.java              # traceId 过滤器
     │   │   └── TraceIdUtils.java               # MDC 工具类
-    │   └── result
-    │       ├── ErrorCode.java                  # 错误码枚举
+    │   └── model
     │       └── Result.java                     # 统一响应体
     └── resources
         ├── META-INF/spring/org.springframework.boot.autoconfigure.AutoConfiguration.imports
         └── logback-spring.xml                  # 默认日志配置
 ```
+
+## 错误码设计：`IErrorCode` + `SysErrorCode`
+
+错误码拆成「接口 + 实现」两层：本库只负责**系统级**错误码，**业务错误码交给业务模块自己定义**。
+
+```java
+public interface IErrorCode {
+    String getCode();
+    String getMessage();
+}
+```
+
+```java
+@Getter
+public enum SysErrorCode implements IErrorCode {
+    SYSTEM_ERROR("SYS0001", "系统内部异常"),
+    REQUEST_ERROR("SYS0002", "请求异常");
+    ...
+}
+```
+
+| 类型 | 归属 | 说明 |
+| --- | --- | --- |
+| `IErrorCode` | 本库 | 错误码**契约**，只有 `getCode()` / `getMessage()` 两个方法 |
+| `SysErrorCode` | 本库 | **系统级**错误码：`SYS0001` 系统内部异常、`SYS0002` 请求异常 |
+| 业务错误码枚举 | **业务模块** | 实现 `IErrorCode` 即可，例如 02 模块的 `com.hyao.advice.common.BizErrorCode` |
+
+**业务模块这样扩展**（02 模块的真实写法）：
+
+```java
+@Getter
+public enum BizErrorCode implements IErrorCode {
+    QUERY_ERROR("QRY0001", "查询错误");
+    ...
+}
+```
+
+```java
+throw new BizException(BizErrorCode.QUERY_ERROR, "查询用户为空！");
+```
+
+这样设计的好处：
+
+- 公共库**不需要知道**各模块有哪些业务错误码，新增业务码不用改公共库；
+- `BizException` 和 `GlobalExceptionHandler` 都只面向 `IErrorCode` 接口编程——`BizException` 构造时从接口取出 `code` 和 `message` 存成自己的字段，所以任何实现了该接口的枚举都能被统一处理。
+
+> ⚠️ `new BizException(errorCode, args...)` 里的参数是靠 `MessageFormat` 填进 `errorCode.getMessage()` 的，所以 message 里要写成 `{0}` 这样的占位符（例如 `"查询异常: {0}"`）；**没有占位符时，传进去的参数会被忽略**。
 
 ## 自动配置怎么工作
 
@@ -99,7 +147,7 @@ public class CommonWebAutoConfiguration {
 | 能力 | 效果 |
 | --- | --- |
 | 响应包装 | 接口返回值自动包成 `Result<T>`；加 `@IgnoreWrapper` 或返回 `ResponseEntity` / `Result` 时自动跳过 |
-| 全局异常 | `throw new BizException(ErrorCode.QUERY_ERROR, "查询用户为空！")` 就得到统一错误响应；框架异常（405/400）保留真实状态码 |
+| 全局异常 | `throw new BizException(BizErrorCode.QUERY_ERROR, "查询用户为空！")` 就得到统一错误响应（`BizErrorCode` 是业务模块自己实现 `IErrorCode` 的枚举）；框架异常（405/400）保留真实状态码 |
 | 统一日志 | 每个请求的日志都带 `traceId`，响应头也会回写 `traceId` |
 
 ## 日志配置

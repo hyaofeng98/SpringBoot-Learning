@@ -1,6 +1,6 @@
 package com.hyao.common.model;
 
-import com.hyao.common.exception.ErrorCode;
+import com.hyao.common.exception.SysErrorCode;
 import lombok.Data;
 
 /**
@@ -30,7 +30,7 @@ public class Result<T> {
     }
 
     public static <T> Result<T> fail() {
-        return fail(ErrorCode.SYSTEM_ERROR.getCode(), ErrorCode.SYSTEM_ERROR.getMessage());
+        return fail(SysErrorCode.SYSTEM_ERROR.getCode(), SysErrorCode.SYSTEM_ERROR.getMessage());
     }
 
     public static <T> Result<T> fail(String code, String message) {

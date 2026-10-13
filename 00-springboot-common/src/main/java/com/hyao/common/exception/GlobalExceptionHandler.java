@@ -46,7 +46,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         } else {
             log.warn("[{}] {} {}", status.value(), request.getDescription(false), ex.getMessage());
         }
-        ErrorCode errorCode = status.is4xxClientError() ? ErrorCode.REQUEST_ERROR : ErrorCode.SYSTEM_ERROR;
+        SysErrorCode errorCode = status.is4xxClientError() ? SysErrorCode.REQUEST_ERROR : SysErrorCode.SYSTEM_ERROR;
         return new ResponseEntity<>(Result.fail(errorCode.getCode(), errorCode.getMessage()), headers, status);
     }
 

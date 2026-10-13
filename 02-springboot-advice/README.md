@@ -13,7 +13,7 @@
 | 迁移项 | 迁移前（本模块） | 迁移后（[00 模块](../00-springboot-common/README.md)） |
 | --- | --- | --- |
 | 根包名 | `com.hyao.advice` | `com.hyao.common` |
-| 统一响应体 / 错误码 | `com.hyao.advice.common.Result` / `ErrorCode` | `com.hyao.common.result.Result` / `IErrorCode` / `ErrorCode` |
+| 统一响应体 / 错误码 | `com.hyao.advice.common.Result` / `SysErrorCode` | `com.hyao.common.model.Result` / `com.hyao.common.exception.IErrorCode` / `com.hyao.common.exception.SysErrorCode` |
 | 业务异常 / 全局异常处理 | `com.hyao.advice.common.BizException` / `advice.exception.GlobalExceptionHandler` | `com.hyao.common.exception.BizException` / `GlobalExceptionHandler` |
 | 响应包装 / 跳过包装注解 | `com.hyao.advice.advice.ResponseWrapperAdvice` / `IgnoreWrapper` | `com.hyao.common.advice.ResponseWrapperAdvice` / `IgnoreWrapper` |
 | traceId 过滤器 / 工具类 / 日志配置 | `com.hyao.advice.log.TraceIdFilter`、`TraceIdUtils`、`logback-spring.xml` | `com.hyao.common.log.*`、`logback-spring.xml` |
@@ -98,7 +98,7 @@ public class Result<T> {
 
 **为什么 `fail` 要显式传 code 和 message，而不是直接把异常丢进来**：这样一个接口的失败文案完全由「错误码 + 业务文案」决定，异常对象里的类名、堆栈、SQL 报错等信息不会被顺手透出给客户端。
 
-## 2. 错误码枚举 `ErrorCode`
+## 2. 错误码枚举 `SysErrorCode`
 
 ```java
 @Getter
@@ -474,7 +474,7 @@ public ResponseEntity<Resource> download(@RequestParam String filename) {
 | 知识点 | 位置 |
 | --- | --- |
 | 统一响应体与静态工厂方法 | `Result` |
-| 错误码枚举、`MessageFormat` 占位符 | `ErrorCode` |
+| 错误码枚举、`MessageFormat` 占位符 | `SysErrorCode` |
 | 非受检业务异常、可变参数构造器 | `BizException` |
 | `ResponseBodyAdvice` 改写返回值、`supports` / `beforeBodyWrite` | `ResponseWrapperAdvice` |
 | `String` 返回值为什么必须手动序列化 | `ResponseWrapperAdvice.beforeBodyWrite` |

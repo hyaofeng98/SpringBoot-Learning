@@ -1,7 +1,7 @@
 package com.hyao.advice.controller;
 
+import com.hyao.advice.common.BizErrorCode;
 import com.hyao.common.exception.BizException;
-import com.hyao.common.exception.ErrorCode;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;
@@ -47,7 +47,7 @@ public class DownloadController {
                     .contentLength(resource.contentLength())
                     .body(resource);
         } catch (IOException e) {
-            throw new BizException(ErrorCode.SYSTEM_ERROR);
+            throw new BizException(BizErrorCode.FILE_DOWNLOAD_ERROR);
         }
     }
 }
