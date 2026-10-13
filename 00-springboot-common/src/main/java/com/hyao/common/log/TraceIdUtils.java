@@ -1,4 +1,4 @@
-package com.hyao.advice.log;
+package com.hyao.common.log;
 
 import org.slf4j.MDC;
 

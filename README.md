@@ -8,9 +8,10 @@ Spring Boot 学习项目。采用 **Maven 多模块聚合工程** 组织，按�
 
 | 模块 | 主题 | 状态 |
 | --- | --- | --- |
+| [00-springboot-common](00-springboot-common/README.md) | 公共库：响应包装 + 全局异常 + 统一日志（自动配置） | ✅ 已完成 |
 | [01-springboot-base](01-springboot-base/README.md) | 基础入门：启动类、配置文件、静态资源、Spring MVC / REST 控制器 | ✅ 已完成 |
-| [02-springboot-advice](02-springboot-advice/README.md) | 响应包装 + 全局异常 + 统一日志 | ✅ 已完成 |
-| 03-springboot-mybatis | 持久层 MyBatis | ⬜ 规划中 |
+| [02-springboot-advice](02-springboot-advice/README.md) | 公共能力的示例模块：用 Controller 演示包装 / 异常 / traceId | ✅ 已完成 |
+| 03-springboot-mybatis-druid | 持久层 MyBatis + Druid 连接池 | ⬜ 进行中 |
 | 04-springboot-mybatis-plus | 持久层 MyBatis-Plus | ⬜ 规划中 |
 
 > 后续模块只作为 `pom.xml` 中的 `<module>` 追加，约定沿用「`序号-springboot-主题`」的命名方式。
@@ -21,11 +22,12 @@ Spring Boot 学习项目。采用 **Maven 多模块聚合工程** 组织，按�
 
 ```
 SpringBoot-Learning
-├── pom.xml                     # 父 POM：聚合模块 + 统一版本与公共依赖
-├── 01-springboot-base          # 01 基础模块
-├── 02-springboot-advice        # 响应包装 + 全局异常 + 统一日志
-├── 03-springboot-mybatis       # 预留
-└── 04-springboot-mybatis-plus  # 预留
+├── pom.xml                          # 父 POM：聚合模块 + 统一版本 + 公共依赖
+├── 00-springboot-common             # 公共库：响应包装 / 全局异常 / 统一日志（自动配置）
+├── 01-springboot-base               # 01 基础
+├── 02-springboot-advice             # 02 公共能力的示例（依赖 00）
+├── 03-springboot-mybatis-druid      # 03 MyBatis + Druid（依赖 00）
+└── 04-springboot-mybatis-plus       # 04 预留（依赖 00）
 ```
 
 ## 技术栈与环境
@@ -44,6 +46,7 @@ SpringBoot-Learning
 1. **模块聚合**
    ```xml
    <modules>
+       <module>00-springboot-common</module>
        <module>01-springboot-base</module>
        <module>02-springboot-advice</module>
    </modules>

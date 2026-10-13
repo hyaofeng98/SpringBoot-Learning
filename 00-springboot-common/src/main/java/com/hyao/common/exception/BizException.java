@@ -1,4 +1,4 @@
-package com.hyao.advice.common;
+package com.hyao.common.exception;
 
 import lombok.Getter;
 
@@ -11,21 +11,21 @@ import java.text.MessageFormat;
 public class BizException extends RuntimeException {
     private static final long serialVersionUID = 1L;
 
-    private final ErrorCode errorCode;
+    private final String code;
 
-    private final String errorMessage;
+    private final String message;
 
     public BizException(ErrorCode errorCode) {
-        this.errorCode = errorCode;
-        this.errorMessage = errorCode.getMessage();
+        this.code = errorCode.getCode();
+        this.message = errorCode.getMessage();
     }
 
     public BizException(ErrorCode errorCode, Object... message) {
-        this.errorCode = errorCode;
-        this.errorMessage = buildErrorMessage(errorCode, message);
+        this.code = errorCode.getCode();
+        this.message = formatErrorMessage(errorCode, message);
     }
 
-    private String buildErrorMessage(ErrorCode errorCode, Object... message) {
+    private String formatErrorMessage(ErrorCode errorCode, Object... message) {
         return MessageFormat.format(errorCode.getMessage(), message);
     }
 }

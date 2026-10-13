@@ -1,4 +1,4 @@
-package com.hyao.advice.advice;
+package com.hyao.common.advice;
 
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;

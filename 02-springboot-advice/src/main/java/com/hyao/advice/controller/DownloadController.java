@@ -1,7 +1,7 @@
 package com.hyao.advice.controller;
 
-import com.hyao.advice.common.BizException;
-import com.hyao.advice.common.ErrorCode;
+import com.hyao.common.exception.BizException;
+import com.hyao.common.exception.ErrorCode;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.core.io.Resource;
 import org.springframework.http.ContentDisposition;

@@ -2,6 +2,25 @@
 
 > ⚠️ **本 README 由 AI 自动生成**，只覆盖本模块已有代码对应的知识点，内容按实际代码与实测结果核对过，仅供参考；**如与源码不一致，请以源码为准**。
 
+## 迁移说明：三项能力的实现已抽到公共库
+
+> 这一节说明**为什么现在在本模块里已经找不到这三项能力的实现**。下面正文保留的是**抽取之前**的形态——知识点、类名、示例输出都不变，只是包名和代码位置变了。
+
+**事由**：这三项能力最早就直接写在本模块里。后面的模块（03、04…）也使用同一套约定，为了避免后续子模块写重复代码，特地抽到公共库。
+
+**做法**：把这三项能力整体搬到公共库 [00-springboot-common](../00-springboot-common/README.md)，并做成 **starter 式自动配置**——依赖方加一行依赖就生效，不需要写 `scanBasePackages`。本模块则退化为**示例模块**，只保留 Controller、实体和配置，用来演示这些能力。
+
+| 迁移项 | 迁移前（本模块） | 迁移后（[00 模块](../00-springboot-common/README.md)） |
+| --- | --- | --- |
+| 根包名 | `com.hyao.advice` | `com.hyao.common` |
+| 统一响应体 / 错误码 | `com.hyao.advice.common.Result` / `ErrorCode` | `com.hyao.common.result.Result` / `IErrorCode` / `ErrorCode` |
+| 业务异常 / 全局异常处理 | `com.hyao.advice.common.BizException` / `advice.exception.GlobalExceptionHandler` | `com.hyao.common.exception.BizException` / `GlobalExceptionHandler` |
+| 响应包装 / 跳过包装注解 | `com.hyao.advice.advice.ResponseWrapperAdvice` / `IgnoreWrapper` | `com.hyao.common.advice.ResponseWrapperAdvice` / `IgnoreWrapper` |
+| traceId 过滤器 / 工具类 / 日志配置 | `com.hyao.advice.log.TraceIdFilter`、`TraceIdUtils`、`logback-spring.xml` | `com.hyao.common.log.*`、`logback-spring.xml` |
+| 生效方式 | 靠包扫描（`@Component`、同包 `@ControllerAdvice`） | `AutoConfiguration.imports` 自动配置 |
+| 本模块的 POM | 无额外依赖 | 依赖 `00-springboot-common` |
+
+## 全局异常处理 + 统一响应包装 + 统一日志
 本模块做三件「全局收口」的事，让业务代码里看不到包装、try-catch 和 traceId 处理：
 
 | 能力 | 实现 | 用到的机制 |
@@ -45,7 +64,9 @@
         └── logback-spring.xml                  # 日志格式、appender、多环境
 ```
 
-模块 POM 只声明了 `parent`，**没有再引额外依赖**：`TraceIdFilter` 里用到的 `commons-lang3` 是父 POM 声明的公共依赖（版本由父 POM 的 BOM 管理）。
+> 上面是**迁移前**的结构。迁移后这些类都搬到了 [00-springboot-common](../00-springboot-common/README.md)，本模块只剩启动类、`controller`、`model` 和 `application.yaml`，POM 里多一行对公共库的依赖。
+
+模块 POM 只声明了 `parent`，**没有再引额外依赖**：`TraceIdFilter` 里用到的 `commons-lang3` 是父 POM 声明的公共依赖（版本由父 POM 的 BOM 管理）。（这是迁移前的情况；迁移后本模块的 POM 里多了一行对 `00-springboot-common` 的依赖。）
 
 ## 1. 统一响应体 `Result<T>`
 

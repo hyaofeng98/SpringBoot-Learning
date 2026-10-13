@@ -1,13 +1,12 @@
-package com.hyao.advice.common;
+package com.hyao.common.exception;
 
 import lombok.Getter;
 
 /**
- * 错误码枚举类。
+ * 系统错误码枚举类。
  */
 @Getter
 public enum ErrorCode {
-
     QUERY_ERROR("QRY0001", "查询异常: {0}"),
 
     SYSTEM_ERROR("SYS0001", "系统内部异常"),

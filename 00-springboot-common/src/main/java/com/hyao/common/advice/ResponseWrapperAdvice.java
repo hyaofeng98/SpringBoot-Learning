@@ -1,8 +1,8 @@
-package com.hyao.advice.advice;
+package com.hyao.common.advice;
 
 import com.fasterxml.jackson.core.JsonProcessingException;
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.hyao.advice.common.Result;
+import com.hyao.common.model.Result;
 import org.springframework.core.MethodParameter;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;

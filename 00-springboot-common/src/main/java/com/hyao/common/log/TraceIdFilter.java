@@ -1,21 +1,26 @@
-package com.hyao.advice.log;
+package com.hyao.common.log;
 
 import lombok.extern.slf4j.Slf4j;
 import org.apache.commons.lang3.StringUtils;
 import org.springframework.core.Ordered;
 import org.springframework.core.annotation.Order;
-import org.springframework.stereotype.Component;
 
-import javax.servlet.*;
+import javax.servlet.Filter;
+import javax.servlet.FilterChain;
+import javax.servlet.ServletException;
+import javax.servlet.ServletRequest;
+import javax.servlet.ServletResponse;
 import javax.servlet.http.HttpServletRequest;
 import javax.servlet.http.HttpServletResponse;
 import java.io.IOException;
 
 /**
  * TraceId生成与清理。使用MDC保存traceId，方便日志跟踪。
+ *
+ * <p>本类不再标 {@code @Component}：它由 {@code CommonWebAutoConfiguration} 以 Bean 方式注册，
+ * 这样使用方只要依赖本 jar 就自动生效，不需要额外配置扫描包。
  */
 @Slf4j
-@Component
 @Order(Ordered.HIGHEST_PRECEDENCE)
 public class TraceIdFilter implements Filter {
     @Override

@@ -1,5 +1,6 @@
-package com.hyao.advice.common;
+package com.hyao.common.model;
 
+import com.hyao.common.exception.ErrorCode;
 import lombok.Data;
 
 /**

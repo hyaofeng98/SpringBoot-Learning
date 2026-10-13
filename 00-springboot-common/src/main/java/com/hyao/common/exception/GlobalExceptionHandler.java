@@ -1,8 +1,6 @@
-package com.hyao.advice.exception;
+package com.hyao.common.exception;
 
-import com.hyao.advice.common.BizException;
-import com.hyao.advice.common.ErrorCode;
-import com.hyao.advice.common.Result;
+import com.hyao.common.model.Result;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -34,8 +32,8 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
      */
     @ExceptionHandler(BizException.class)
     public Result<Void> handleException(BizException be) {
-        log.warn("[{}] {}", be.getErrorCode(), be.getErrorMessage(), be);
-        return Result.fail(be.getErrorCode().getCode(), be.getErrorMessage());
+        log.warn("[{}] {}", be.getCode(), be.getMessage(), be);
+        return Result.fail(be.getCode(), be.getMessage());
     }
 
     /**

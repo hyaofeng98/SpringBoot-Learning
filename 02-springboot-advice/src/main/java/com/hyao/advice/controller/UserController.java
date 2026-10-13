@@ -1,8 +1,8 @@
 package com.hyao.advice.controller;
 
-import com.hyao.advice.advice.IgnoreWrapper;
-import com.hyao.advice.common.Result;
 import com.hyao.advice.model.User;
+import com.hyao.common.advice.IgnoreWrapper;
+import com.hyao.common.model.Result;
 import org.springframework.web.bind.annotation.*;
 
 /**
@@ -12,13 +12,28 @@ import org.springframework.web.bind.annotation.*;
 @RequestMapping("/api")
 public class UserController {
 
+    /**
+     * 演示返回字符串响应的数据包装效果。
+     * <pre>
+     *     请求示例：
+     *     GET http://localhost:8081/api/hello
+     * </pre>
+     * @return 字符串响应
+     */
     @GetMapping("/hello")
     public String hello() {
         return "Hello World!";
     }
 
     /**
-     * 查询用户。
+     * 演示返回POJO对象响应的数据包装效果。
+     * <pre>
+     *     请求示例：
+     *     POST http://localhost:8081/api/user1
+     *
+     *     Content-Type: application/json
+     *     { "id": 1, "name": "hyao", "age": 18, "birthday": "2000-01-01" }
+     * </pre>
      *
      * @param user 用户信息
      * @return 未包装的用户信息
@@ -35,8 +50,14 @@ public class UserController {
     }
 
     /**
-     * 查询用户。
+     * 演示 {@code @IgnoreWrapper} 跳过包装的效果。
+     * <pre>
+     *     请求示例：
+     *     POST http://localhost:8081/api/user2
      *
+     *     Content-Type: application/json
+     *     { "id": 1, "name": "hyao", "age": 18, "birthday": "2000-01-01" }
+     * </pre>
      * @param user 用户信息
      * @return 未包装的用户信息，跳过包装
      */
@@ -53,8 +74,14 @@ public class UserController {
     }
 
     /**
-     * 查询用户。
+     * 演示返回结果已包装响应的包装效果。
+     * <pre>
+     *     请求示例：
+     *     POST http://localhost:8081/api/user3
      *
+     *     Content-Type: application/json
+     *     { "id": 1, "name": "hyao", "age": 18, "birthday": "2000-01-01" }
+     * </pre>
      * @param user 用户信息
      * @return 已包装的用户信息
      */

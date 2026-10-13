@@ -1,8 +1,9 @@
 package com.hyao.advice.controller;
 
-import com.hyao.advice.common.BizException;
-import com.hyao.advice.common.ErrorCode;
+import com.hyao.advice.common.BizErrorCode;
 import com.hyao.advice.model.User;
+import com.hyao.common.exception.BizException;
+import com.hyao.common.exception.ErrorCode;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
@@ -14,6 +15,15 @@ import org.springframework.web.bind.annotation.RestController;
 @RequestMapping("/error")
 public class ErrorController {
 
+    /**
+     * 演示全局异常处理效果。
+     * <pre>
+     *     请求示例：
+     *     GET http://localhost:8081/error/user
+     * </pre>
+     *
+     * @return 异常演示结果
+     */
     @PostMapping("/user")
     public User getUser() {
         // 查询用户...
