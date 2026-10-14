@@ -2,6 +2,8 @@ package com.hyao.common.exception;
 
 import com.hyao.common.model.Result;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.core.Ordered;
+import org.springframework.core.annotation.Order;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -26,13 +28,18 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     /**
      * 处理业务异常。
+     * <ul><li>
+     *     {@code @Order(Ordered.HIGHEST_PRECEDENCE)} 多个 advice 之间的匹配规则是「按 @Order 排序后，取第一个能匹配该异常的
+     *     方法」。注解中不定义 value 时默认优先级最低.
+     * </li></ul>
      *
      * @param be 业务异常对象
      * @return 统一的返回体
      */
+    @Order(Ordered.HIGHEST_PRECEDENCE)
     @ExceptionHandler(BizException.class)
     public Result<Void> handleException(BizException be) {
-        log.warn("[{}] {}", be.getCode(), be.getMessage(), be);
+        log.error("[{}] {}", be.getCode(), be.getMessage(), be);
         return Result.fail(be.getCode(), be.getMessage());
     }
 
@@ -44,7 +51,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         if (status.is5xxServerError()) {
             log.error("[{}] {} {}", status.value(), request.getDescription(false), ex.getMessage(), ex);
         } else {
-            log.warn("[{}] {} {}", status.value(), request.getDescription(false), ex.getMessage());
+            log.warn("[{}] {} {}", status.value(), request.getDescription(false), ex.getMessage(), ex);
         }
         SysErrorCode errorCode = status.is4xxClientError() ? SysErrorCode.REQUEST_ERROR : SysErrorCode.SYSTEM_ERROR;
         return new ResponseEntity<>(Result.fail(errorCode.getCode(), errorCode.getMessage()), headers, status);
@@ -52,9 +59,11 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 
     /**
      * 处理所有不可知的异常。
+     *
      * @param e 异常对象
      * @return 统一的返回体
      */
+    @Order
     @ExceptionHandler(Exception.class)
     public Result<Void> handleException(Exception e) {
         log.error("系统内部异常", e);
