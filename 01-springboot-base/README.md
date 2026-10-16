@@ -1,30 +1,64 @@
 # 01-springboot-base
 
-> ⚠️ **本 README 由 AI 自动生成**，只覆盖本模块已有代码对应的知识点，内容按实际代码与实测结果核对过，仅供参考；**如与源码不一致，请以源码为准**。
+> ⚠️ **本 README 由 AI 辅助生成后人工优化并完善补充**，只覆盖本模块已有代码对应的知识点，内容按实际代码与实测结果核对过，仅供参考；**如与源码不一致，请以源码为准**。
 
-Spring Boot 基础入门模块。覆盖：启动类、配置文件、静态资源、以及 Spring MVC 的 **视图控制器** 与 **REST 控制器** 两套写法。
+## 1. 学习目标
 
-## 模块结构
+| 目标 | 落点 |
+| --- | --- |
+| 启动类、自动配置与包扫描范围 | `BaseApplication` |
+| 配置文件、静态资源规则 | `application.yaml`、`resources/static/index.html` |
+| 视图控制器：视图名、重定向与转发 | `MyController` |
+| REST 控制器：参数绑定、JSON 序列化 | `MyRestController`、`User` |
 
+## 2. 学习清单
+
+| 状态 | 优先级 | 知识点 | 说明 |
+| --- | --- | --- | --- |
+| ✅ | — | **启动类与包扫描** | `@SpringBootApplication` 三合一（`@SpringBootConfiguration` + `@EnableAutoConfiguration` + `@ComponentScan`）；默认只扫启动类所在包及子包，Controller 写到 `com.hyao.base` 之外且不配 `scanBasePackages` 就是 404 |
+| ✅ | — | **配置与静态资源** | `server.port`（不配默认 8080，本模块当前 8081）；`spring.mvc.view.prefix/suffix` 决定 `prefix + 视图名 + suffix`；`static/` 四个默认位置有优先级，放进去就能访问、不经 Controller 也不走视图解析器 |
+| ✅ | — | **视图控制器：视图名、转发与重定向** | `@Controller` 返回字符串 = 视图名，交给 `InternalResourceViewResolver`；类级 + 方法级 `@RequestMapping`（路径拼接、`path`/`value` 等价、`method` 限定）；`redirect:`（302、地址变）与 `forward:`（内部转发、地址不变） |
+| ✅ | — | **REST 控制器与参数绑定** | `@RestController` = `@Controller` + `@ResponseBody`；`@GetMapping` 等是 `@RequestMapping(method = …)` 的简写（用错方法 405）；`@PathVariable` / `@RequestParam` / `@RequestBody`（`Map` 和 POJO 都能接，**一个方法只能有一个**） |
+| ✅ | — | **消息转换与 JSON 序列化** | `HttpMessageConverter`：`String` → `StringHttpMessageConverter`（text/plain），POJO/`Map` → `MappingJackson2HttpMessageConverter`（application/json）；Lombok 四注解（缺无参构造会让 Jackson 反序列化失败）；`LocalDate` 默认 ISO-8601，`@JsonFormat` 改格式 |
+| ✅ | — | **devtools 热部署** | 编译后自动重启上下文，改静态资源一般不用重启 |
+| ⬜ | ★★★ | **参数校验与测试** | `@Valid` / `@Validated` 的声明式校验与错误信息处理（本模块没有校验示例）；`@SpringBootTest` / `@WebMvcTest` + `MockMvc` 做接口自动化断言（本模块没有测试代码） |
+| ⬜ | ★★☆ | **`ResponseEntity` / `@ResponseStatus`、拦截器与过滤器** | 自定义 HTTP 状态码与响应头；`HandlerInterceptor`（Spring MVC 层）与 `Filter`（Servlet 层）的差异与执行顺序 |
+| ⬜ | ★★☆ | **多环境配置 + Thymeleaf** | `application-dev/prod.yaml` + `spring.profiles.active`；视图解析器换成模板引擎的解析器 |
+| ⬜ | ★☆☆ | **`@RequestHeader` / `@CookieValue`、文件上传下载** | 绑定请求头与 Cookie；`MultipartFile` 上传，下载可参考 02 模块的 `ResponseEntity<Resource>` |
+
+## 3. 依赖与配置
+
+### 3.1 依赖
+
+本模块 `pom.xml` **只声明了 `parent`**，没有任何 `<dependencies>` 和 `<version>`：
+
+| 依赖 | 来源 | 作用 |
+| --- | --- | --- |
+| `spring-boot-starter-web` | 父 POM 继承 | 内嵌 Tomcat + Spring MVC + Jackson（`@RestController`、消息转换器都靠它） |
+| `spring-boot-devtools` | 父 POM 继承（runtime / optional） | 热部署：编译后自动重启上下文 |
+| `lombok` | 父 POM 继承（provided / optional） | 编译期生成 getter/setter/构造器，`User` 用到 |
+
+### 3.2 `application.yaml`
+
+```yaml
+server:
+  port: 8081          # 不配置默认 8080
+spring:
+  mvc:
+    view:
+      prefix: /       # 视图解析器前缀
+      suffix: .html   # 视图解析器后缀
 ```
-01-springboot-base
-├── pom.xml
-└── src/main
-    ├── java/com/hyao/base
-    │   ├── BaseApplication.java               # 启动类
-    │   ├── controller
-    │   │   ├── MyController.java              # @Controller：返回视图名
-    │   │   └── MyRestController.java          # @RestController：返回响应体
-    │   └── model
-    │       └── User.java                      # 实体类（Lombok + Jackson 注解）
-    └── resources
-        ├── application.yaml                   # 端口、视图解析器配置
-        └── static/index.html                  # 静态资源
-```
 
-模块 POM 只声明了 `parent` 指向父工程，**没有写任何依赖和版本**：起步依赖由父 POM 继承，版本由父 POM 导入的 Spring Boot BOM 决定。
+YAML 用缩进表示层级（不能用 Tab）；`application.yaml` 与 `application.properties` 二选一，放 `resources/` 根目录或 `resources/config/` 下都能识别。`server.port` 是内嵌 Tomcat 端口，同一端口只能跑一个实例。
 
-## 1. 启动类与 `@SpringBootApplication`
+### 3.3 静态资源目录
+
+`static/index.html` 不需要任何 Controller，直接访问 `http://localhost:<port>/index.html`。默认位置**按优先级**（前面的覆盖后面的）为 `classpath:/META-INF/resources/` → `classpath:/resources/` → `classpath:/static/`（本项目用的目录）→ `classpath:/public/`，由 `ResourceHttpRequestHandler` 处理、**不走视图解析器**。
+
+## 4. 核心实现
+
+### 4.1 `BaseApplication`：启动类与包扫描
 
 ```java
 @SpringBootApplication
@@ -35,256 +69,100 @@ public class BaseApplication {
 }
 ```
 
-`@SpringBootApplication` 是一个组合注解，等价于下面三个注解：
+- `@SpringBootApplication` = `@SpringBootConfiguration`（本质 `@Configuration`）+ `@EnableAutoConfiguration`（按 classpath 依赖自动装配 Bean：有 web 起步依赖就配好 Tomcat + Spring MVC + Jackson）+ `@ComponentScan`（**默认只扫启动类所在包及其子包**）；
+- 启动类在 `com.hyao.base`，所以 `controller`、`model` 都会被扫到；`SpringApplication.run()` 创建容器、启动内嵌 Tomcat 并阻塞主线程。
 
-| 组成注解 | 作用 |
-| --- | --- |
-| `@SpringBootConfiguration` | 本质是 `@Configuration`，标识这是一个配置类 |
-| `@EnableAutoConfiguration` | 开启自动配置，Spring Boot 按 classpath 上的依赖自动装配 Bean（引入了 web 起步依赖，就自动配好 Tomcat + Spring MVC + Jackson） |
-| `@ComponentScan` | 组件扫描，**默认扫描启动类所在包及其子包** |
-
-最后一点很关键：启动类在 `com.hyao.base`，所以 `com.hyao.base.controller`、`com.hyao.base.model` 下的类会被自动扫描到。**如果把 Controller 写到 `com.hyao.base` 之外的包（比如 `com.other.controller`），不额外配置 `scanBasePackages` 就不会被扫描，接口会 404。**
-
-`SpringApplication.run()` 负责创建 Spring 容器、启动内嵌 Tomcat、启动完成后阻塞主线程。
-
-## 2. 配置文件 `application.yaml`
-
-```yaml
-# 配置端口（不配置默认8080）
-server:
-  port: 8080
-
-spring:
-  mvc:
-    # 视图解析器配置
-    view:
-      prefix: /
-      suffix: .html
-```
-
-| 配置项 | 作用 |
-| --- | --- |
-| `server.port` | 内嵌 Tomcat 端口，不配置默认 `8080` |
-| `spring.mvc.view.prefix` / `suffix` | 视图解析器的前缀/后缀，见第 4 节 |
-
-YAML 用缩进表示层级（不能用 Tab），`application.yaml` 与 `application.properties` 二选一即可，Spring Boot 都会自动加载。配置类文件可以放在 `src/main/resources` 根目录，也可以放在 `config/` 子目录下，都会被识别。
-
-## 3. 静态资源 `static/index.html`
-
-`src/main/resources/static/index.html` 会被 Spring Boot 当作静态资源直接对外提供，访问地址就是 <http://localhost:8080/index.html>。
-
-Spring Boot 默认的静态资源位置（按优先级，前面的覆盖后面的）：
-
-```
-classpath:/META-INF/resources/
-classpath:/resources/
-classpath:/static/          ← 本项目使用的目录
-classpath:/public/
-```
-
-所以静态资源 **不需要写任何 Controller**，把文件放进 `static` 目录即可通过 `http://localhost:8080/文件名` 访问。它由 Spring MVC 的 `ResourceHttpRequestHandler` 处理，不走视图解析器。
-
-## 4. 视图控制器 `@Controller`（MyController）
-
-### 4.1 `@Controller` 与视图解析
-
-`@Controller` 类中的方法返回 **字符串时表示视图名**，不会直接写入响应体，而是交给视图解析器处理。
-
-本项目 **没有引入模板引擎**（Thymeleaf 等模板技术后续再单独学），所以走的是 Spring MVC 默认的视图解析器 `InternalResourceViewResolver`，它把视图名拼接成转发路径：
-
-```
-prefix + 视图名 + suffix
-```
-
-`application.yaml` 中配置 `prefix=/`、`suffix=.html`，因此返回 `"index"` 最终会 **转发** 到 `/index.html`，也就是上面那个静态页面。如果以后引入模板引擎，这个解析器就会被模板引擎自己的视图解析器取代。
-
-### 4.2 类级与方法级 `@RequestMapping`
+### 4.2 `MyController`：视图控制器
 
 ```java
 @Controller
 @RequestMapping("/hello")
 public class MyController {
-    @RequestMapping(path = "/redirect", method = RequestMethod.GET)   // 完整路径 /hello/redirect
-    ...
+    @RequestMapping(path = "/redirect", method = RequestMethod.GET)
+    public String helloByRedirect() { return "redirect:/index.html"; }   // 302，地址栏变
+    @RequestMapping("/view")
+    public String helloByView() { return "index"; }                      // 视图名 → /index.html
 }
 ```
 
-- 类上的 `@RequestMapping` 是 **公共路径前缀**；
-- 方法上的 `@RequestMapping` 是该方法的路径；
-- 两者 **拼接** 得到完整路径。
+- `@Controller` 方法返回**字符串表示视图名**，不直接写响应体；本项目没引入模板引擎，走默认的 `InternalResourceViewResolver`，把视图名拼成转发路径（`prefix + 视图名 + suffix`），返回 `"index"` 即转发到 `/index.html`；
+- 类级 `@RequestMapping` 是公共前缀、方法级是具体路径，**两者拼接**；方法级常用 `path`/`value`（路径，等价）与 `method`（限定请求方法）。`/redirect` 显式写了 `RequestMethod.GET` 只能收 GET，`/forward`、`/view` 没写则**任意方法都能访问**；
+- `redirect:` / `forward:` 前缀会让返回值**不再经过视图解析器**：前者 302 + `Location`、浏览器再发一次请求；后者服务器内部转发。三者最终渲染的都是 `static/index.html`。
 
-方法级 `@RequestMapping` 常用这两个属性：
-
-| 属性 | 说明 |
-| --- | --- |
-| `path` / `value` | 请求路径，两者等价，`@RequestMapping("/forward")` 就是省略 `value` 的简写 |
-| `method` | 限定的请求方法，如 `RequestMethod.GET` |
-
-本类里两种写法都出现了：`/redirect` 显式写了 `method = RequestMethod.GET`，因此只能收到 **GET** 请求；`/forward` 和 `/view` 没写 `method`，所以 **任意 HTTP 方法**（GET/POST/PUT…）都能访问。要限定方法时，Spring 4.3 起还可以用 `@GetMapping` 这类简写（见第 5 节）。
-
-### 4.3 重定向 vs 转发
-
-| 写法 | 行为 | 浏览器地址 | 本质 |
-| --- | --- | --- | --- |
-| `return "redirect:/index.html"` | 302 重定向 | **会变化** | 服务器返回 302 + Location，由浏览器再发一次请求 |
-| `return "forward:/index.html"` | 服务器内部转发 | **不变** | 在服务器内部把请求交给另一个处理器，只有一次请求 |
-
-- 加 `redirect:` 前缀时，返回值 **不再经过视图解析器**，直接当作重定向地址。
-- 加 `forward:` 前缀同理，直接当作转发地址。
-- 所以 `/hello/view`、`/hello/forward` 在浏览器地址栏看着不一样，但最终渲染的都是 `static/index.html`。
-
-### 4.4 接口一览
-
-| 请求 | 说明 | 实测 |
-| --- | --- | --- |
-| `GET /hello/redirect` | 302 重定向到 `/index.html`，地址栏变为 `/index.html` | `302`，`Location: http://localhost:8080/index.html` |
-| `GET /hello/forward` | 内部转发到 `/index.html`，地址栏仍是 `/hello/forward` | `200`，响应体是 index.html 的内容 |
-| `GET /hello/view` | 返回视图名 `index`，经 `InternalResourceViewResolver` 解析为 `/index.html` | `200`，响应体是 index.html 的内容 |
-
-三个路径最终渲染的都是 `static/index.html`，区别只在 HTTP 状态码和浏览器地址栏。
-
-因为 `/redirect` 限定了 `GET`，用其他方法访问它会得到 `405`；`/forward`、`/view` 没有限定方法，就不受这个限制。
-
-## 5. REST 控制器 `@RestController`（MyRestController）
-
-### 5.1 `@RestController` = `@Controller` + `@ResponseBody`
-
-`@ResponseBody` 表示方法返回值 **直接写入 HTTP 响应体**，不再当作视图名解析。`@RestController` 就是这两个注解的组合，写 REST API 时用它即可，不用每个方法再加 `@ResponseBody`。
-
-### 5.2 请求映射注解简写
-
-`@GetMapping("/hello")` 等价于 `@RequestMapping(value = "/hello", method = RequestMethod.GET)`。同类简写：
-
-| 简写 | 等价于 |
-| --- | --- |
-| `@GetMapping` | `@RequestMapping(method = GET)` |
-| `@PostMapping` | `@RequestMapping(method = POST)` |
-| `@PutMapping` | `@RequestMapping(method = PUT)` |
-| `@DeleteMapping` | `@RequestMapping(method = DELETE)` |
-| `@PatchMapping` | `@RequestMapping(method = PATCH)` |
-
-这里显式限定了请求方法，用错方法访问会返回 `405 Method Not Allowed`。
-
-### 5.3 参数绑定
-
-| 注解 | 绑定来源 | 示例 |
-| --- | --- | --- |
-| `@PathVariable` | URL 路径中的占位符 | `/api/user/0001` → `@PathVariable("id") String id` 得到 `0001` |
-| `@RequestParam` | 请求参数（查询串或表单） | `/api/user/param?id=0001&name=hyao` |
-| `@RequestBody` | 请求体，按 `Content-Type` 反序列化 | `Content-Type: application/json` + JSON 串 |
-
-要点：
-
-- 路径占位符用 `{}` 声明：`@PostMapping("/user/{id}")`；路径变量 **默认必填**，可选时写 `@PathVariable(value = "id", required = false)`。
-- `@RequestParam` 默认也是必填，非必填要写 `@RequestParam(required = false)`（如示例中的 `name`）。用 `?id=1&name=x` 这种查询串传参，不需要 JSON。
-- `@RequestBody` 既能反序列化为 `Map<String, Object>`，也能反序列化为 POJO；**一个方法只能有一个 `@RequestBody`**。
-- 参数名与占位符/请求参数名一致时，注解的 `value` 可以省略，但显式写出更清晰。
-
-### 5.4 返回值与消息转换器
-
-方法的返回值由 `HttpMessageConverter` 决定怎么写出：
-
-| 返回类型 | 使用的转换器 | `Content-Type` |
-| --- | --- | --- |
-| `String` | `StringHttpMessageConverter` | `text/plain;charset=UTF-8` |
-| POJO / `Map` | `MappingJackson2HttpMessageConverter` | `application/json` |
-
-也就是说，**返回类型既可以是 Map 也可以是 POJO**，框架都会自动序列化成 JSON。正因为 `MappingJackson2HttpMessageConverter` 存在，`@RequestBody` 能反序列化 JSON、`@RestController` 能返回 JSON——这些都来自 `spring-boot-starter-web` 传递引入的 Jackson。
-
-### 5.5 接口一览
-
-类上有 `@RequestMapping("/api")`，以下路径都已包含该前缀。
-
-| 请求 | 说明 | 实测返回 |
-| --- | --- | --- |
-| `GET /api/hello` | 返回字符串 | `text/plain;charset=UTF-8`，`Hello, World!` |
-| `POST /api/user` | 返回 `Map` | `{"id":"0001","name":"hyao","age":18,"birthday":"2008-10-11"}` |
-| `POST /api/user/{id}` | `@PathVariable` 绑定路径变量 | `/api/user/0001` → `{"id":"0001","name":"hyao"}` |
-| `POST /api/user/param?id=&name=` | `@RequestParam` 绑定请求参数 | `?id=0001&name=hyao` → `{"id":"0001","name":"hyao"}`，`name` 可省略 |
-| `POST /api/user/body/map` | `@RequestBody` 绑定为 `Map` | 原样回显请求体 JSON |
-| `POST /api/user/body/object` | `@RequestBody` 绑定为 `User`，返回 `User` | `{"id":"0001","name":"hyao","age":18,"birthday":"2008-10-11"}`，用 `User.builder()` 复制后返回 |
-
-请求方法用错会得到 `405`：实测 `POST /api/hello` → `405 Method Not Allowed`。
-
-> 代码注释里的调用示例把 `/api/hello`、`/api/user` 写成了 `POST`，实际以注解为准：`/api/hello` 是 `@GetMapping`，只能用 **GET** 访问，上面的 `405` 就是这么来的。
-
-### 5.6 验证示例
-
-先启动应用：在 IDEA 里运行 [`BaseApplication`](src/main/java/com/hyao/base/BaseApplication.java) 的 `main` 方法（默认端口 8080，注意同一个端口同时只能跑一个实例）。
-
-```bash
-# 视图相关（浏览器直接访问即可）
-curl -i http://localhost:8080/hello/redirect
-curl -i http://localhost:8080/hello/forward
-curl -i http://localhost:8080/hello/view
-
-# REST 接口
-curl -i http://localhost:8080/api/hello
-curl -i -X POST http://localhost:8080/api/user
-curl -i -X POST http://localhost:8080/api/user/0001
-curl -i -X POST "http://localhost:8080/api/user/param?id=0001&name=hyao"
-
-curl -i -X POST http://localhost:8080/api/user/body/map \
-  -H "Content-Type: application/json" \
-  -d '{"id":"0001","name":"hyao","age":18,"birthday":"2008-10-11"}'
-
-curl -i -X POST http://localhost:8080/api/user/body/object \
-  -H "Content-Type: application/json" \
-  -d '{"id":"0001","name":"hyao","age":18,"birthday":"2008-10-11"}'
-```
-
-实测结果：`/hello/redirect` 返回 `302`（`Location: http://localhost:8080/index.html`），`/hello/forward` 与 `/hello/view` 返回 `200` 且响应体就是 `static/index.html`，REST 接口返回的 JSON 与 5.5 表格中一致。
-
-## 6. 实体类与 Lombok（User）
+### 4.3 `MyRestController`：REST 控制器
 
 ```java
-@Data
-@Builder
-@NoArgsConstructor
-@AllArgsConstructor
-public class User {
-    private String id;
-    private String name;
-    private Integer age;
+@RestController
+@RequestMapping("/api")
+public class MyRestController {
+    @GetMapping("/hello") public String hello() { ... }        // 只能 GET
+    // 其余：@PostMapping /user、/user/{id}(@PathVariable)、/user/param(@RequestParam)、
+    //       /user/body/map 与 /user/body/object(@RequestBody，后者返回 User)
+}
+```
 
+| 注解 | 绑定来源 | 说明 |
+| --- | --- | --- |
+| `@PathVariable` | URL 路径占位符 `{}` | 默认必填，可选写 `required = false` |
+| `@RequestParam` | 查询串 / 表单 | 默认必填，本模块 `name` 用了 `required = false` |
+| `@RequestBody` | 请求体（按 `Content-Type` 反序列化） | 既能接 `Map` 也能接 POJO；**一个方法只能有一个** |
+
+- 返回 `String` 由 `StringHttpMessageConverter` 写回（`text/plain;charset=UTF-8`）；返回 POJO / `Map` 由 `MappingJackson2HttpMessageConverter` 写回（`application/json`）——自动序列化成 JSON 靠的就是 `spring-boot-starter-web` 传递引入的 Jackson。
+
+### 4.4 `User`：Lombok 与日期格式
+
+```java
+@Data @Builder @NoArgsConstructor @AllArgsConstructor
+public class User {
+    private String id; private String name; private Integer age;
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate birthday;
 }
 ```
 
-| 注解 | 作用 |
+- `@Data` 生成 getter/setter、`toString()`、`equals()`/`hashCode()`；`@Builder` 生成链式建造者；`@NoArgsConstructor`/`@AllArgsConstructor` 生成无参/全参构造（`@Builder` 需要全参，Jackson 需要无参）；
+- **易踩的坑**：`@RequestBody User` 反序列化时 Jackson 要先 `new` 一个空对象再逐个 set 属性。只写 `@Builder` 而不加 `@NoArgsConstructor` 就没有默认无参构造，`/api/user/body/object` 会报 `InvalidDefinitionException: Cannot construct instance of ...`；
+- **日期**：Spring Boot 默认关闭 Jackson 的 `WRITE_DATES_AS_TIMESTAMPS`，`LocalDate` 默认按 ISO-8601（`yyyy-MM-dd`）输出；要别的格式用 `@JsonFormat(pattern = "...")`，它对**序列化和反序列化都生效**。
+
+## 5. 快速验证
+
+启动：IDEA 里运行 [`BaseApplication`](src/main/java/com/hyao/base/BaseApplication.java) 的 `main` 方法。**同一端口同时只能跑一个实例**，被占用时会启动失败。
+
+```bash
+# 视图：redirect 是 302，forward / view 返回 index.html（也可以直接用浏览器打开）
+curl -i http://localhost:8081/hello/redirect
+curl -i http://localhost:8081/hello/forward
+curl -i http://localhost:8081/hello/view
+# REST：GET /api/hello 返回文本；下面演示 @RequestBody（返回 User）
+curl -i http://localhost:8081/api/hello
+curl -i -X POST http://localhost:8081/api/user/body/object \
+  -H "Content-Type: application/json" \
+  -d '{"id":"0001","name":"hyao","age":18,"birthday":"2008-10-11"}'
+```
+
+| 请求 | 实测结果 |
 | --- | --- |
-| `@Data` | 生成 getter/setter、`toString()`、`equals()`/`hashCode()` |
-| `@Builder` | 生成链式建造者，如 `User.builder().id("0001").build()` |
-| `@NoArgsConstructor` | 生成无参构造 |
-| `@AllArgsConstructor` | 生成全参构造（`@Builder` 需要它） |
+| `GET /hello/redirect` | `302`，`Location: http://localhost:8081/index.html` |
+| `GET /hello/forward`、`GET /hello/view` | `200`，响应体就是 `static/index.html` 的内容 |
+| `GET /api/hello` | `200`，`Content-Type: text/plain;charset=UTF-8`，`Hello, World!` |
+| `POST /api/hello` | `405`（它是 `@GetMapping`） |
+| `POST /api/user` | `{"id":"0001","name":"hyao","age":18,"birthday":"2008-10-16"}`（`birthday` 取 `LocalDate.now().plusYears(-18)`，**会随运行日期变化**） |
+| `POST /api/user/0001` | `{"id":"0001","name":"hyao"}` |
+| `POST /api/user/param?id=0001&name=hyao` | `{"id":"0001","name":"hyao"}` |
+| `POST /api/user/body/map`、`POST /api/user/body/object` | 回显请求体 JSON，`object` 版返回 `User` |
 
-**易踩的坑：Jackson 反序列化 `@RequestBody User user` 时，必须先 `new` 一个空对象再逐个 set 属性，所以 POJO 必须有 **无参构造**。如果只写 `@Builder` 而不加 `@NoArgsConstructor`，Lombok 生成全参构造后就 **不会** 再有默认无参构造，`/api/user/body/object` 会因反序列化失败而报错（`InvalidDefinitionException: Cannot construct instance of ...`）。三个注解一起写才安全。**
+## 6. 常见问题与踩坑
 
-### 日期序列化
-
-- Spring Boot 默认关闭了 Jackson 的 `WRITE_DATES_AS_TIMESTAMPS`，所以 `LocalDate` 默认就按 ISO-8601（`yyyy-MM-dd`）输出，`LocalDateTime` 会输出 `yyyy-MM-ddTHH:mm:ss`。实测 `POST /api/user` 返回的 `birthday` 就是 `"2008-10-11"`——这里的 `LocalDate` 是放在 `Map` 里的、并没有加 `@JsonFormat`，靠的就是这个默认配置。
-- 需要别的格式时用 `@JsonFormat(pattern = "...")` 指定，如 `User.birthday` 上的 `@JsonFormat(pattern = "yyyy-MM-dd")`；它同时作用于 **序列化（返回 JSON）和反序列化（接收 JSON）**。
-- 也可以全局配置：`spring.jackson.date-format` / `spring.jackson.time-zone`（对 `java.util.Date` 生效），或自定义 `Jackson2ObjectMapperBuilderCustomizer`。
-
-## 7. devtools 热部署
-
-`spring-boot-devtools` 已在父 POM 中声明（`runtime` + `optional`）。它的作用是：
-
-- 监听 classpath 下文件变化，编译后 **自动重启** 应用上下文（比手动停止再启动快，但仍然是重启，静态资源和部分第三方 jar 除外）；
-- 修改 `static/` 下的静态资源、模板文件通常无需重启；
-- 修改 Java 代码后需要触发一次编译（IDEA 中 `Ctrl + F9` 或开启 `Build project automatically`）。
-
-## 8. 小结
-
-| 知识点 | 位置 |
+| 现象 | 原因 / 解法 |
 | --- | --- |
-| `@SpringBootApplication` 与包扫描 | `BaseApplication` |
-| `server.port`、视图解析器配置 | `application.yaml` |
-| 静态资源目录 | `resources/static/index.html` |
-| `@Controller` 返回视图名、`redirect:` / `forward:` | `MyController` |
-| `@RestController`、`@GetMapping`/`@PostMapping` | `MyRestController` |
-| `@PathVariable` / `@RequestParam` / `@RequestBody` | `MyRestController` |
-| 消息转换器与 JSON 序列化 | `MyRestController` + Jackson |
-| Lombok、`@JsonFormat`、无参构造的坑 | `User` |
-| 热部署 | `spring-boot-devtools` |
+| 接口 404 | Controller 不在启动类所在包（或其子包）下，且没配 `scanBasePackages` |
+| 405 Method Not Allowed | 请求方法不匹配：`@GetMapping` 只能用 GET（如 `POST /api/hello`）；`/hello/redirect` 也限定了 GET |
+| 启动报端口被占用 | 同一端口只能跑一个实例，先停掉占用端口的进程 |
+| `Cannot construct instance of ...` | POJO 缺无参构造：`@Builder` 必须配 `@NoArgsConstructor` |
+| 拿到的是视图名/HTML 而不是 JSON | 视图控制器返回的是视图名；要 JSON 用 `@RestController` 或加 `@ResponseBody` |
+| 代码注释里的示例写着 POST | `MyRestController` 注释把 `/api/hello`、`/api/user` 的示例写成了 POST，**以注解为准**：`/api/hello` 是 `@GetMapping` |
+
+## 7. 学习笔记
+
+- **视图控制器 vs REST 控制器怎么选**：判断依据是「返回值是视图名还是响应体」——渲染页面用 `@Controller`，返回 JSON/文本 API 用 `@RestController`。
+- **本模块是「裸」返回**：不做响应包装、不统一处理异常、没有 traceId。项目里这三件后续从02模块开始实现。

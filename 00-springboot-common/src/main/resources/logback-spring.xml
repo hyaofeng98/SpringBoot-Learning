@@ -66,7 +66,7 @@
             <appender-ref ref="CONSOLE"/>
             <appender-ref ref="FILE"/>
         </root>
-        <logger name="com.example.learning" level="DEBUG"/>
+        <logger name="com.hyao" level="DEBUG"/>
     </springProfile>
 
     <springProfile name="prod">
