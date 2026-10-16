@@ -1,0 +1,37 @@
+server:
+  port: 8083
+
+spring:
+  datasource:
+    url: jdbc:mysql://localhost:3306/hyao?useUnicode=true&characterEncoding=utf8&serverTimezone=Asia/Shanghai&useSSL=true&requireSSL=true
+    username: root
+    password: 123456
+    driver-class-name: com.mysql.cj.jdbc.Driver
+    # 配置数据源类型
+    type: com.alibaba.druid.pool.DruidDataSource
+    # 配置 druid 数据源
+    druid:
+      initial-size: 5                           # 初始化物理连接个数
+      min-idle: 5                               # 最小空闲连接数
+      max-active: 20                            # 最大活跃连接数
+      max-wait: 60000                           # 获取连接时最大等待时间ms
+      time-between-eviction-runs-millis: 60000  # 检测空闲连接的时间间隔ms
+      min-evictable-idle-time-millis: 300000    # 连接在池中最小生存时间ms
+      validation-query: SELECT 1                # 检测连接是否有效的SQL
+      test-while-idle: true                     # 空闲时检测连接是否有效
+
+mybatis:
+  # 配置 mapper xml文件位置
+  mapper-locations: classpath:mapper/*.xml
+  # 配置实体类的包路径：配好之后 XML 里就能用短类名，如 resultType="Account"
+  type-aliases-package: com.hyao.mybatis.entity
+  # 配置类型处理器的包路径
+  type-handlers-package: com.hyao.mybatis.handler
+  configuration:
+    # 开启驼峰命名转换
+    map-underscore-to-camel-case: true
+
+# 让 MyBatis 的 SQL 日志走 slf4j（默认实现），从而进入 00 模块的统一日志格式（带 traceId、也会写文件）
+logging:
+  level:
+    com.hyao.mybatis.mapper: debug
