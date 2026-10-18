@@ -6,6 +6,7 @@ import lombok.Getter;
 @Getter
 public enum BizErrorCode implements IErrorCode {
     DB_ERROR("DBE0001", "DB操作异常"),
+    BIZ_ENUM_ERROR("BIZ0001", "业务枚举代码异常"),
     ;
 
     private final String code;

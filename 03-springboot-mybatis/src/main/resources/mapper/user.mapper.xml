@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+
+<mapper namespace="com.hyao.mybatis.mapper.UserMapper">
+
+    <!-- <sql>标签用于定义可重用的sql片段 -->
+    <sql id="Base_Column_List">
+        id, nickname, avatar, status, created_at, updated_at
+    </sql>
+
+    <!-- <insert>插入标签 -->
+    <!-- 插入用户 -->
+    <insert id="insertUser" parameterType="User">
+        INSERT INTO `user` (id, nickname, avatar, status) VALUES (#{id}, #{nickname}, #{avatar}, #{status})
+    </insert>
+
+    <!-- <select>查询标签 -->
+    <select id="queryUserById" parameterType="string" resultType="User">
+        SELECT
+            <include refid="Base_Column_List" />
+        FROM `user`
+        WHERE id = #{id}
+    </select>
+
+    <!-- 按条件分页查询 -->
+    <select id="pageQueryUserConditional" parameterType="map" resultType="map">
+        SELECT
+            u.id, u.nickname, u.avatar, u.status, u.created_at, u.updated_at,
+            up.gender, up.birthday, up.province, up.city, up.address, up.company, up.bio
+        FROM `user` u
+        LEFT JOIN user_profiles up ON u.id = up.user_id
+        <where>
+            <if test="nextCursor != null and nextCursor != ''">u.id &gt;= #{nextCursor}</if>
+            <if test="status != null">AND u.status = #{status}</if>
+            <if test="gender != null">AND up.gender = #{gender}</if>
+            <if test="beginDate != null">AND up.birthday &gt;= #{beginDate}</if>
+            <if test="endDate != null">AND up.birthday &lt;= #{endDate}</if>
+            <if test="province != null">AND up.province = #{province}</if>
+            <if test="city != null">AND up.city = #{city}</if>
+        </where>
+        ORDER BY u.id ASC
+        LIMIT #{pageSize}
+    </select>
+
+    <!-- <update>更新标签 -->
+    <!-- 选择性更新用户 -->
+    <update id="updateUserSelective" parameterType="User">
+        UPDATE `user`
+        <set>
+            <if test="nickname != null">nickname = #{nickname},</if>
+            <if test="avatar != null">avatar = #{avatar},</if>
+            <if test="status != null">status = #{status},</if>
+            <if test="deletedAt != null">deleted_at = #{deletedAt},</if>
+            id = id
+        </set>
+        WHERE id = #{id}
+        AND status != 2
+    </update>
+</mapper>

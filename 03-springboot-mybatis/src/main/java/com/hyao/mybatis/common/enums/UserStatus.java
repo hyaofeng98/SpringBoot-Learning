@@ -1,13 +1,13 @@
 package com.hyao.mybatis.common.enums;
 
 import com.hyao.common.exception.BizException;
-import com.hyao.common.exception.SysErrorCode;
+import com.hyao.mybatis.common.errorcode.BizErrorCode;
 import lombok.Getter;
 
 @Getter
 public enum UserStatus implements BaseEnum {
-    NORMAL(0, "正常"),
-    DISABLE(1, "禁用"),
+    DISABLED(0, "禁用"),
+    NORMAL(1, "正常"),
     DELETED(2, "删除");
 
     private final int code;
@@ -24,6 +24,6 @@ public enum UserStatus implements BaseEnum {
                 return status;
             }
         }
-        throw new BizException(SysErrorCode.SYSTEM_ERROR);
+        throw new BizException(BizErrorCode.BIZ_ENUM_ERROR);
     }
 }

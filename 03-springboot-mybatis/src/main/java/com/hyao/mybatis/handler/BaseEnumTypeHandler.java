@@ -1,6 +1,8 @@
 package com.hyao.mybatis.handler;
 
+import com.hyao.common.exception.BizException;
 import com.hyao.mybatis.common.enums.BaseEnum;
+import com.hyao.mybatis.common.errorcode.BizErrorCode;
 import org.apache.ibatis.type.BaseTypeHandler;
 import org.apache.ibatis.type.JdbcType;
 
@@ -63,7 +65,7 @@ public abstract class BaseEnumTypeHandler<E extends Enum<E> & BaseEnum> extends 
     private E codeOf(int code) {
         E e = codeMap.get(code);
         if (e == null) {
-            throw new IllegalArgumentException("Unknown code: " + code);
+            throw new BizException(BizErrorCode.BIZ_ENUM_ERROR);
         }
         return e;
     }

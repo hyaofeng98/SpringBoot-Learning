@@ -22,7 +22,7 @@ public class User {
     /** 头像url */
     private String avatar;
 
-    /** 状态, 1正常/0禁用 */
+    /** 状态, 1正常/2删除/0禁用 */
     private UserStatus status;
 
     /** 创建时间（create_at，默认 CURRENT_TIMESTAMP） */
