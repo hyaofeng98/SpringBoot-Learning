@@ -17,7 +17,8 @@
 | 状态 | 优先级 | 知识点 | 说明 |
 | --- | --- | --- | --- |
 | ✅ | — | **统一响应包装（示例）** | 00 的 `ResponseWrapperAdvice`：`GET /api/hello`、`POST /api/user1` 自动包装成 `Result<T>`；`/api/user2` 用 `@IgnoreWrapper` 跳过；`/api/user3` 已是 `Result` 不重复包装 |
-| ✅ | — | **全局异常处理（示例）** | 00 的 `GlobalExceptionHandler`：业务异常 → `200` + 业务码（`BizException`）；框架异常（405/400）→ 保留真实状态码 + `SYS0002` |
+| ✅ | — | **全局异常处理（示例）** | 00 的 `GlobalExceptionHandler`：业务异常 → `200` + 业务码（`BizException`）；框架异常保留真实状态码：405 → `SYS0002`、404 → `SYS0003`、400 → `SYS0004` / `SYS0005` |
+| ✅ | — | **参数校验（示例）** | 00 的 Bean Validation 统一处理：`POST /api/user/valid` 标 `@Valid`，`name` 必填且不超过 10 个字符、`age` 在 1~150 之间，校验失败 → `400` + `SYS0004`（`参数校验失败: name: 不能为空`）；其它接口没标 `@Valid`，同样的 `User` 不会被校验 |
 | ✅ | — | **统一日志（示例）** | 00 的 `TraceIdFilter` + 默认 `logback-spring.xml`：日志与响应头都带 `traceId` |
 | ✅ | — | **自定义业务错误码** | `BizErrorCode implements IErrorCode`（`QRY0001` 查询、`FDL0001` 下载），业务错误码由业务模块自己维护 |
 | ✅ | — | **包装的边界：下载与跳过开关** | `DownloadController` 返回 `ResponseEntity<Resource>`，被 `supports()` 排除；`@IgnoreWrapper`（00 模块）方法级/类级都能标 |
@@ -63,10 +64,11 @@ public class AdviceApplication {
 | `POST /api/user1` | `User` | 自动包成 `Result<User>` |
 | `POST /api/user2` | `User` + `@IgnoreWrapper` | 不包装，直接返回 User 的 JSON |
 | `POST /api/user3` | `Result<User>` | 已经包好，不重复包装 |
+| `POST /api/user/valid` | `User` + `@Valid` | 校验通过则自动包装；失败由 00 统一返回 `400` + `SYS0004` |
 
-三个 POST 的请求体相同：`{ "id": "0001", "name": "hyao", "age": 18, "birthday": "2008-10-11" }`。
+这几个 POST 的请求体相同：`{ "id": "0001", "name": "hyao", "age": 18, "birthday": "2008-10-11" }`。
 
-这四个方法里**没有任何包装逻辑**，只有业务返回——这就是 `ResponseBodyAdvice` 的价值。
+这些方法里**没有任何包装/校验代码**（除了 `@Valid` 注解）：包装靠 `ResponseBodyAdvice`，校验失败靠 00 的统一异常处理。
 
 ### 4.3 `ErrorController`（`/error`）
 
@@ -113,7 +115,7 @@ public enum BizErrorCode implements IErrorCode {
 }
 ```
 
-- 实现 00 模块的 `IErrorCode`（`getCode()` / `getMessage()`）：**业务错误码由业务模块自己维护，公共库只放系统级错误码**（`SysErrorCode`：`SYS0001` 系统内部异常、`SYS0002` 请求异常）；
+- 实现 00 模块的 `IErrorCode`（`getCode()` / `getMessage()`）：**业务错误码由业务模块自己维护，公共库只放系统级错误码**（`SysErrorCode`：`SYS0001` 系统内部异常、`SYS0002` 请求方法不支持、`SYS0003` 接口不存在、`SYS0004` 参数校验失败、`SYS0005` 参数类型不匹配、`SYS0006` 请求异常兜底）；
 - `QUERY_ERROR` 的文案带 `{0}` 占位符，`BizException` 会用 `MessageFormat` 把传入的参数填进去。
 
 ## 5. 快速验证
@@ -127,7 +129,11 @@ public enum BizErrorCode implements IErrorCode {
 | `POST /api/user2` | `@IgnoreWrapper` | `200`，裸 User JSON（没有 `code` / `message` 外层） |
 | `POST /api/user3` | 已是 `Result`，不重复包装 | `200`，与 `user1` 结构一致（只有一层 `Result`） |
 | `POST /error/user` | 业务异常 | `200`，`{"code":"QRY0001","message":"查询错误: 查询用户为空！","data":null}` |
-| `POST /api/hello` | 方法不支持（框架异常） | `405` + `Allow: GET` + `{"code":"SYS0002","message":"请求异常","data":null}` |
+| `POST /api/user/valid`，body 缺 `name` | 参数校验失败 | `400`，`{"code":"SYS0004","message":"参数校验失败: name: 不能为空","data":null}` |
+| `POST /api/user/valid`，`age` 传 `200` | 参数校验失败 | `400`，`{"code":"SYS0004","message":"参数校验失败: age: 不能大于 150","data":null}` |
+| `POST /api/user/valid`，body 不是合法 JSON | 请求体解析失败 | `400`，`{"code":"SYS0004","message":"参数校验失败，请求体解析失败","data":null}` |
+| `POST /api/hello` | 方法不支持（框架异常） | `405` + `Allow: GET` + `{"code":"SYS0002","message":"请求方法不支持，该接口仅支持 GET","data":null}` |
+| `GET /nope` | URL 不存在 | `404`，`{"code":"SYS0003","message":"接口不存在: /nope","data":null}` |
 | `GET /download?filename=application.yaml` | 文件下载 | `200`，`application/octet-stream` |
 | `GET /download?filename=x.txt` | 文件不存在 | `404`（Controller 主动返回） |
 
@@ -137,7 +143,7 @@ public enum BizErrorCode implements IErrorCode {
 
 - **`MessageFormat` 的占位符**：`QUERY_ERROR` 的文案是 `查询错误: {0}`，参数会被填进去（返回 `查询错误: 查询用户为空！`）；但**文案里没有占位符时，`new BizException(code, "参数")` 传的参数会被静默忽略**——扩错误码时留意。另外 `MessageFormat` 把单引号当转义、会给数字加千分位（`1234` → `1,234`）。
 - **`String` 返回值为什么要特殊处理**：`StringHttpMessageConverter` 会把返回值当字符串强转，直接返回 `Result` 会 `ClassCastException`；00 的包装器在 String 分支用 `ObjectMapper` 手动序列化并改 `Content-Type`，所以 `GET /api/hello` 返回的是 JSON。
-- **业务异常与框架异常的 HTTP 状态码不一样**：业务异常 `200` + 业务码；框架异常（405/400/415…）保留状态码 + `SYS0002`。前端只看状态码会把两者混在一起。
+- **业务异常与框架异常的 HTTP 状态码不一样**：业务异常 `200` + 业务码；框架异常（405/404/400/415…）保留状态码 + 细分后的系统码（`SYS0002` 方法不支持、`SYS0003` 接口不存在、`SYS0004` 参数校验失败、`SYS0005` 类型不匹配、`SYS0006` 其余 4xx）。前端只看状态码会把两者混在一起，所以约定是「业务看 code、协议看 status」。
 - **`DownloadController` 的 404 不走全局异常处理**：`ResponseEntity.notFound()` 是主动返回的响应，不是异常。
 - **`@IgnoreWrapper` 靠运行时反射读**：注解必须是 `@Retention(RUNTIME)`（00 模块已如此定义），否则 `supports()` 读不到。
 
@@ -168,4 +174,4 @@ public enum BizErrorCode implements IErrorCode {
 ### 本模块的定位
 
 - **只供学习**：包装、异常、日志都是"能跑通的最小实现"，真实项目要具体场景具体分析（响应要不要统一包、包哪些接口、异常要不要保留 HTTP 状态码、日志怎么落盘与采集）；
-- **接口约定（自本模块起）**：业务成功还是失败一律看响应体里的 `code`（`SUC0000` 成功），业务异常连 HTTP 状态码也是 `200`，框架异常保留真实状态码；三项能力的实现原理都在 00 模块，本模块只演示"用了之后是什么效果"。
+- **接口约定（自本模块起）**：业务成功还是失败一律看响应体里的 `code`（`SUC0000` 成功），业务异常连 HTTP 状态码也是 `200`；请求/参数层面的异常保留真实状态码（405/404/400）并用细分系统码（`SYS0002`~`SYS0006`），参数校验失败统一 `400 + SYS0004`。三项能力的实现原理都在 00 模块，本模块只演示"用了之后是什么效果"。

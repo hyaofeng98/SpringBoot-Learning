@@ -16,7 +16,7 @@ Spring Boot 学习项目，用 **Maven 多模块聚合工程** 按知识点拆�
 
 | 模块 | 主题 | 端口 | 状态 | README |
 | --- | --- | --- | --- | --- |
-| `00-springboot-common` | 公共库：响应包装 + 全局异常 + 统一日志（starter 式自动配置） | 无（库） | ✅ 已完成 | [00 模块](00-springboot-common/README.md) |
+| `00-springboot-common` | 公共库：响应包装 + 全局异常 + 参数校验 + 统一日志（starter 式自动配置） | 无（库） | ✅ 已完成 | [00 模块](00-springboot-common/README.md) |
 | `01-springboot-base` | 基础入门：启动类、配置文件、静态资源、MVC / REST 控制器 | 8081 | ✅ 已完成 | [01 模块](01-springboot-base/README.md) |
 | `02-springboot-advice` | 公共能力的示例：用 Controller 演示包装 / 异常 / traceId | 8082 | ✅ 已完成 | [02 模块](02-springboot-advice/README.md) |
 | `03-springboot-mybatis` | 持久层：Spring Boot 集成 MyBatis + Druid 连接池 | 8083 | 🚧 进行中 | [03 模块](03-springboot-mybatis/README.md) |
@@ -102,4 +102,15 @@ SpringBoot-Learning
 
 > **业务成功还是失败，一律看响应体里的 `code`**——`SUC0000` 表示成功，其他值对应 `SysErrorCode`，或业务模块自己实现 `IErrorCode` 的错误码（如 03 的 `DBE0001`）。**业务异常时 HTTP 状态码也是 `200`**。
 
-框架层面的异常（方法不支持 `405`、缺参数 / 请求体解析失败 `400` 等）会保留真实的 HTTP 状态码，但响应体同样是统一的 [`Result`](00-springboot-common/src/main/java/com/hyao/common/model/Result.java)。后续模块都遵循这个约定，细节见 [02 模块 README](02-springboot-advice/README.md)。
+请求 / 参数层面的异常会保留真实的 HTTP 状态码，但响应体同样是统一的 [`Result`](00-springboot-common/src/main/java/com/hyao/common/model/Result.java)，错误码按场景细分：
+
+| code | 含义 | HTTP 状态码 |
+| --- | --- | --- |
+| `SYS0001` | 系统内部异常 | `500`（未知异常兜底时为 `200`） |
+| `SYS0002` | 请求方法不支持（如接口只收 POST 却用了 GET） | `405`（带 `Allow` 头） |
+| `SYS0003` | 接口不存在（URL 找不到） | `404` |
+| `SYS0004` | 参数校验失败（`@Valid` 不通过、缺参数、请求体解析失败） | `400` |
+| `SYS0005` | 参数类型不匹配（如 `pageSize=abc`） | `400` |
+| `SYS0006` | 其余 4xx 兜底 | 原始 4xx |
+
+后端用 `spring-boot-starter-validation`（Bean Validation）做声明式校验，校验失败统一 `400 + SYS0004`（字段错误拼成 `字段: 提示`）。后续模块都遵循这个约定，细节见 [02 模块 README](02-springboot-advice/README.md) 与 [00 模块 README](00-springboot-common/README.md)。

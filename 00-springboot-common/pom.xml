@@ -20,8 +20,14 @@
     </properties>
 
     <!--
-      本模块不额外声明依赖：spring-boot-starter-web（含 autoconfigure、tomcat、jackson）
-      和 commons-lang3 都在父 POM 的公共依赖里，子模块自动继承。
+      仅额外声明参数校验依赖（Bean Validation / Hibernate Validator）：
+      其它依赖（spring-boot-starter-web、jackson、commons-lang3、lombok）都在父 POM 的公共依赖里，子模块自动继承。
       它是「库」不是「应用」：产物就是普通 jar，没有任何打包插件配置。
     -->
+    <dependencies>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-validation</artifactId>
+        </dependency>
+    </dependencies>
 </project>

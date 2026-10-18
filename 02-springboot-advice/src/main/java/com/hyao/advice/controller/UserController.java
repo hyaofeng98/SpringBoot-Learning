@@ -5,6 +5,8 @@ import com.hyao.common.advice.IgnoreWrapper;
 import com.hyao.common.model.Result;
 import org.springframework.web.bind.annotation.*;
 
+import javax.validation.Valid;
+
 /**
  * 正常返回示例。
  */
@@ -95,5 +97,26 @@ public class UserController {
                 .birthday(user.getBirthday())
                 .build();
         return Result.ok(queryUser);
+    }
+
+    /**
+     * 演示参数校验：{@code name} 必填且不超过 10 个字符，{@code age} 在 1~150 之间。
+     *
+     * <p>约束注解写在 {@link User} 上，只有这里的 {@code @Valid} 会让它生效——其它接口没标 {@code @Valid}，
+     * 所以同样的 {@code User} 传非法值也不会被拦截。
+     * <pre>
+     *     请求示例：
+     *     POST http://localhost:8082/api/user/valid
+     *
+     *     Content-Type: application/json
+     *     { "id": "0001", "name": "hyao", "age": 18, "birthday": "2000-01-01" }
+     * </pre>
+     *
+     * @param user 用户信息
+     * @return 校验通过的用户信息
+     */
+    @PostMapping("/user/valid")
+    public User valid(@Valid @RequestBody User user) {
+        return user;
     }
 }
