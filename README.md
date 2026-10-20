@@ -19,7 +19,7 @@ Spring Boot 学习项目，用 **Maven 多模块聚合工程** 按知识点拆�
 | `00-springboot-common` | 公共库：响应包装 + 全局异常 + 参数校验 + 统一日志（starter 式自动配置） | 无（库） | ✅ 已完成 | [00 模块](00-springboot-common/README.md) |
 | `01-springboot-base` | 基础入门：启动类、配置文件、静态资源、MVC / REST 控制器 | 8081 | ✅ 已完成 | [01 模块](01-springboot-base/README.md) |
 | `02-springboot-advice` | 公共能力的示例：用 Controller 演示包装 / 异常 / traceId | 8082 | ✅ 已完成 | [02 模块](02-springboot-advice/README.md) |
-| `03-springboot-mybatis` | 持久层：Spring Boot 集成 MyBatis + Druid 连接池 | 8083 | 🚧 进行中 | [03 模块](03-springboot-mybatis/README.md) |
+| `03-springboot-mybatis` | 持久层：Spring Boot 集成 MyBatis + Druid（业务场景驱动的 MyBatis 特性） | 8083 | 🚧 进行中 | [03 模块](03-springboot-mybatis/README.md) |
 | `04-springboot-mybatis-plus` | 持久层：MyBatis-Plus | — | ⬜ 规划中（暂未纳入 `<modules>`） | — |
 
 > **命名约定**：`序号-springboot-主题`。新增模块 = 建目录 + 在父 POM 的 `<modules>` 里追加一行 + 写该模块的 README。

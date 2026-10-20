@@ -1,4 +1,4 @@
-package com.hyao.mybatis.handler;
+package com.hyao.mybatis.common.handler;
 
 import com.hyao.common.exception.BizException;
 import com.hyao.mybatis.common.enums.BaseEnum;

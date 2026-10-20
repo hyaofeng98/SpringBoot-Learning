@@ -15,33 +15,42 @@
 
 ## 1. 学习目标
 
-在 Spring Boot 中集成 MyBatis 与 Druid：注解 / XML 两种 Mapper 写法、动态 SQL、驼峰映射与枚举 TypeHandler、keyset 分页、声明式事务、持久层异常与业务错误码，并理清一次 Mapper 调用从代理到 Druid 取连接的链路。
+分两半，缺一不可：
+
+1. **集成原理**：Spring Boot 怎样把 MyBatis 和 Druid 装到一起——依赖怎么组合、属性怎么绑定、自动配置按什么顺序和条件装配、容器里的 `DataSource` 为什么一定是 Druid、一次 Mapper 调用怎样穿过 Spring 的事务与异常体系落到 Druid 的池子上。
+2. **用业务场景带出 MyBatis 的用法和常用特性**：用「订单 + 库存」这个企业里最常见的场景，把注解 Mapper、XML Mapper、动态 SQL、`resultMap` 一对多、批量插入、游标分页、枚举 TypeHandler、分布式主键、事务与库存扣减串起来。
 
 ## 2. 学习清单
 
-按**能力域**聚合，一个域一行：
+### 2.1 业务场景（特性 → 业务问题）
 
-| 状态 | 优先级 | 知识点 | 说明 |
-| --- | --- | --- | --- |
-| ✅ | — | **集成与配置** | `mybatis-spring-boot-starter` + `druid-spring-boot-starter` + MySQL 驱动；`@MapperScan` 统一扫描；常用配置清单（数据源 / Druid 连接池 / `mybatis.*` / `mybatis.configuration.*`，见 §3.2） |
-| ✅ | — | **注解式 Mapper（`UserProfilesMapper`）** | `@Insert` / `@Select` / `@Update` + `@Param` + `#{}`；演示「全字段更新会覆盖未传字段」的坑（见 §4.2.1） |
-| ✅ | — | **XML 式 Mapper（`UserMapper` + `user.mapper.xml`）** | `namespace` 绑定、`<sql>` + `<include>`、`resultType` 的实体 / map 两种、`LIMIT` 参数化；statement `id` 必须与接口方法名一致（见 §4.2.3） |
-| ✅ | — | **动态 SQL（`<where>` / `<set>` / `<if>`）** | `<where>` 自动去掉首个 `AND`、`<set>` 自动去掉尾逗号，配合 `<if>` 实现条件查询与选择性更新 |
-| ✅ | — | **Keyset（游标）分页** | `WHERE u.id >= #{nextCursor} ORDER BY u.id LIMIT #{pageSize}`，多查一条判断 `hasNextPage` 并返回下一页 `nextCursor` |
-| ✅ | — | **声明式事务 `@Transactional`** | `insertUser` 上 `@Transactional(rollbackFor = Exception.class)`：`user` 与 `user_profiles` 两条 insert 同一事务、一起提交或回滚 |
-| ✅ | — | **枚举 ↔ 整型字段（TypeHandler）** | `BaseEnum` 约定 `getCode()` + 泛型基类 `BaseEnumTypeHandler<E>` + `GenderTypeHandler` / `UserStatusTypeHandler` + `type-handlers-package` 注册 |
-| ✅ | — | **持久层异常** | 模块自己的 `DbExceptionHandler`：`DataAccessException` → `DBE0001`，靠 `@Order` 优先于公共库的兜底方法（见 §4.2.4） |
-| ✅ | — | **SQL 日志** | 走 slf4j（`logging.level.com.hyao.mybatis.mapper: debug`），进入 00 模块的统一日志格式并带 traceId |
-| ⬜ | ★★★ | **主键生成策略** | 示例里 `insertUser` 故意把 id 写死成 `u0000001`（同一 id 第二次插入会主键冲突）；真实项目可换 UUID / 雪花 / 号段 |
-| ⬜ | ★★★ | **`resultMap` 与关联查询** | 现在全靠 `resultType` + 驼峰；可补 `<resultMap>` / `<association>`（`user` 与 `user_profiles` 正好一对一）/ `<collection>` / 延迟加载 |
-| ⬜ | ★★☆ | **动态 SQL 补全** | 缺 `<foreach>`（in 查询 / 批量插入）、`<choose>`、`<trim>`；条件判空的写法已在 `pageQueryUserConditional` 里用 `<if test="nextCursor != null and nextCursor != ''">` 演示 |
-| ⬜ | ★★☆ | **批量操作** | `<foreach>` 批量 insert、`ExecutorType.BATCH` 批量模式 |
-| ⬜ | ★★☆ | **分页插件** | 手写 keyset 分页够用，可对比 PageHelper；顺带讲 MyBatis 插件 `Interceptor` + `@Intercepts` + `@Signature` |
-| ⬜ | ★★☆ | **测试** | `@MybatisTest` 切片测试、`@SpringBootTest` + `@Transactional` 回滚、H2 内存库 |
-| ⬜ | ★☆☆ | **缓存（一级 / 二级）** | 一级缓存（SqlSession 级、同一事务内）与二级缓存（namespace 级、`<cache/>` + `cache-enabled`） |
-| ⬜ | ★☆☆ | **`${}` 与 SQL 注入** | 现在全用 `#{}`；动态排序 / 表名不得不用 `${}` 时怎么防注入 |
-| ⬜ | ★☆☆ | **乐观锁** | 并发更新丢失问题（`version` 字段或 `WHERE` 带上旧值） |
-| ⬜ | ★☆☆ | **工程化** | 建表脚本自动化（`spring.sql.init.*` 或 Flyway）、多环境与密码外置、Druid 监控页（`stat-view-servlet` + 慢 SQL 统计） |
+| 状态 | 优先级 | 业务场景 | 覆盖的 MyBatis 特性 | 涉及的集成点 |
+| --- | --- | --- | --- | --- |
+| ✅ | ★★★ | **订单创建**（`order_info` + `order_item` + 扣 `sku_stock`） | 雪花分布式主键、`<foreach>` 批量插明细、条件更新扣库存（影响行数判断） | `@Transactional` 跨三表、异常翻译（库存不足 / 下架 → 业务码）、DTO + `@Valid` |
+| ✅ | ★★★ | **订单详情**（订单 + 明细） | `<resultMap>` + `<collection>` 一对多、`<id>` 聚合、`resultType` 实体 + 驼峰、枚举 TypeHandler | 无（纯 MyBatis 侧） |
+| ✅ | ★★★ | **订单列表条件分页** | `<where>` + `<if>` 动态条件、`LIMIT` 参数化、游标分页（多查一条）、`resultType="map"`（列名保持下划线） | DTO + `@Valid`、SQL 日志（统一格式 + traceId） |
+| ✅ | ★★☆ | **订单状态流转 / 取消** | `<set>` + `<if>` 选择性更新、`WHERE status = 前置状态` 保证幂等、影响行数判断 | 事务、取消后回补库存 |
+| ✅ | ★★☆ | **库存扣减**（防超卖） | 条件更新 `UPDATE ... WHERE stock >= n`（影响行数 0 = 库存不足） | 事务、`@Transactional` 回滚 |
+| ⬜ | ★★☆ | **批量发货 / 批量导入** | `<foreach>` 批量 update、`ExecutorType.BATCH`、大事务拆分 | 事务边界、连接池占用 |
+| ⬜ | ★★☆ | **报表统计**（按天 / 状态聚合） | `<choose>`、`GROUP BY` + `resultType="map"` | 慢 SQL 监控（Druid `stat`） |
+| ⬜ | ★★☆ | **数据字典缓存** | 二级缓存 `<cache/>`、一级缓存边界（SqlSession 级） | `cache-enabled` / `local-cache-scope` |
+| ⬜ | ★☆☆ | **幂等 / 防重**（订单号唯一索引） | 捕获 `DuplicateKeyException` → 业务错误码 | 异常翻译（`DataAccessException` 体系） |
+| ⬜ | ★★☆ | **多数据源**（订单库 / 商品库） | 多个 `SqlSessionFactory`、`@MapperScan(sqlSessionTemplateRef)` | 自动配置覆盖（`@ConditionalOnMissingBean`） |
+| ⬜ | ★★☆ | **换池实验 + Druid 监控** | 无 MyBatis 改动 | Druid vs Hikari、`stat` 过滤器 + `/druid/` 监控页 |
+| ⬜ | ★☆☆ | **集成测试** | `@MybatisTest` / H2 / `@Transactional` 回滚 | 事务、异常翻译的集成验证 |
+
+> 各场景的实现级设计（接口契约 / DTO / SQL / 事务边界 / 验收用例）见 [订单库存场景详设](../docs/订单库存场景详设.md)。
+
+### 2.2 集成原理
+
+1. **依赖组合**：先弄清三个 starter 各带来什么——`mybatis-spring-boot-starter` 带 MyBatis 本体、`mybatis-spring`（把 MyBatis 接进 Spring 的桥）和它的 autoconfigure；`druid-spring-boot-starter` 带 Druid 本体和 autoconfigure；版本都由父 POM 统一管。
+2. **配置绑定**：`spring.datasource.*` 落到 `DataSourceProperties`，再被 `DruidDataSourceWrapper.afterPropertiesSet()` 取过去 set 到池子上；`spring.datasource.druid.*` 直接通过 `@ConfigurationProperties` 绑到 `DruidDataSource`；`mybatis.*` 落到 `MybatisProperties`；`app.id.*` 落到本模块的 `SnowflakeProperties`（见 §3.2）。
+3. **自动配置装配**：`DruidDataSourceAutoConfigure` 靠 `@AutoConfigureBefore(DataSourceAutoConfiguration)` + `@ConditionalOnMissingBean` 抢在 Boot 原生数据源前面注册 Druid，Hikari 因此退让；`MybatisAutoConfiguration` 再通过 `@ConditionalOnSingleCandidate(DataSource.class)` 拿到容器里唯一的数据源，创建 `SqlSessionFactory` / `SqlSessionTemplate`（见 §4.3.1）。
+4. **Mapper 扫描与代理**：`@MapperScan` 注册 `MapperScannerConfigurer`，为每个接口生成 `MapperFactoryBean`，`getObject()` 返回 JDK 动态代理；它与自动 `@Mapper` 扫描器二选一（见 §4.1）。
+5. **运行时串联**：一次调用走 MapperProxy → `SqlSessionTemplate` → `SqlSessionUtils` → `SpringManagedTransaction` → `DataSourceUtils` → `DruidDataSource`；事务、异常翻译、SQL 日志都挂在这条链上（见 §4.3.2、§4.2.9、§3.2.6）。
+6. **横切配套**：参数校验（00 的 Bean Validation，失败 `400 + SYS0004`）、统一响应 / 异常、traceId（见 §4.2.10）。
+
+> 串起来看就是一句话：**配置决定 Bean，Bean 的注册顺序决定容器里只有一个 Druid 数据源；MyBatis 只依赖 `javax.sql.DataSource` 接口，所以「换成哪个池子」对 Mapper 代码完全透明。**
 
 ## 3. 依赖与配置
 
@@ -150,8 +159,8 @@ spring数据源配置以`spring.datasource`作为前缀，配置项参考`org.sp
 | 配置                              | 说明                                                                 |
 | --------------------------------- | -------------------------------------------------------------------- |
 | `mapper-locations`                | XML mapper 位置（`classpath*:mapper/**/*.xml`），**不配 XML 不会被加载** |
-| `type-aliases-package`            | 扫描该包并注册短类名别名（`resultType="User"`）                       |
-| `type-handlers-package`           | 扫描该包并注册自定义 TypeHandler                                     |
+| `type-aliases-package`            | 扫描该包并注册短类名别名（`resultType="OrderInfo"`）                  |
+| `type-handlers-package`           | 扫描该包并注册自定义 TypeHandler（本模块为 `com.hyao.mybatis.common.handler`） |
 | `config-location`                 | 原生 `mybatis-config.xml` 的位置                                     |
 | `configuration-properties`        | 传给 `config-location` 的变量（在 XML 里用 `${xxx}` 引用）            |
 | `check-config-location`           | 启动时是否校验 `config-location` 存在                                |
@@ -167,7 +176,7 @@ spring数据源配置以`spring.datasource`作为前缀，配置项参考`org.sp
 
 | 配置                                    | 说明                                                                 |
 | --------------------------------------- | -------------------------------------------------------------------- |
-| `map-underscore-to-camel-case`          | 下划线列名 → 驼峰属性（`user_name` → `userName`），**只对 POJO 生效** |
+| `map-underscore-to-camel-case`          | 下划线列名 → 驼峰属性（`user_id` → `userId`），**只对 POJO 生效**    |
 | `cache-enabled`                         | 二级缓存总开关（还要 namespace 里写 `<cache/>` 才生效）               |
 | `local-cache-scope`                     | 一级缓存范围：`SESSION`（默认，一个 SqlSession 内有效）/ `STATEMENT`（语句级，等于关掉） |
 | `lazy-loading-enabled`                  | 是否开启延迟加载                                                     |
@@ -188,7 +197,21 @@ spring数据源配置以`spring.datasource`作为前缀，配置项参考`org.sp
 | `use-column-label`                      | 用列标签而不是列名作为结果列名                                       |
 | `use-actual-param-name`                 | 是否使用真实参数名（需 `-parameters` 编译参数）                       |
 
-#### 3.2.5 日志与建表（Spring 侧）
+#### 3.2.5 自定义配置（`app.id.*`）：雪花 ID 的机器位
+
+```yaml
+app:
+  id:
+    worker-id: ${WORKER_ID:0}          # 0~31，集群里每个实例必须不同
+    datacenter-id: ${DATACENTER_ID:0}  # 0~31
+```
+
+对应 [`SnowflakeProperties`](src/main/java/com/hyao/mybatis/config/SnowflakeProperties.java)（`@ConfigurationProperties(prefix = "app.id")`）+ [`SnowflakeConfig`](src/main/java/com/hyao/mybatis/config/SnowflakeConfig.java)（`@EnableConfigurationProperties` 后 `@Bean` 创建 `SnowflakeIdGenerator`）。
+
+- 集群部署时通过环境变量（如 K8s 的 `POD_INDEX`）或启动参数给每个实例注入不同的 `worker-id`；
+- 同一个 `workerId` + `datacenterId` 起两个实例会生成**重复订单号**（主键冲突）。
+
+#### 3.2.6 日志与建表（Spring 侧）
 
 | 配置                                                                     | 说明                                                     |
 | ------------------------------------------------------------------------ | -------------------------------------------------------- |
@@ -197,14 +220,18 @@ spring数据源配置以`spring.datasource`作为前缀，配置项参考`org.sp
 
 ### 3.3 建表脚本
 
-[`script/1.sql`](src/main/resources/script/1.sql) 定义两张表，**需要自己在 MySQL 里先执行**：
+**[`script/1.sql`](src/main/resources/script/1.sql)** —— 订单 + 库存域：
 
-| 表                  | 说明                                                                                                                                                       |
-| ------------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `user`          | 用户表：`id`(varchar(16) 业务主键)、`nickname`、`avatar`、`status`(tinyint)、`created_at`、`updated_at`、`deleted_at`                                      |
-| `user_profiles` | 扩展资料表：`user_id`(主键)、`real_name`、`gender`(tinyint)、`birthday`(date)、`province`、`city`、`address`、`company`、`bio`、`created_at`、`updated_at` |
+| 表 | 关键设计 |
+| --- | --- |
+| `order_info` | **`id` 是字符串主键**（`varchar(32)`，雪花算法生成，同时就是订单号）；`status` tinyint + `cancelled_at`（取消标记）；索引 `idx_user_id(user_id,id)`、`idx_status_id(status,id)`、`idx_created_at` |
+| `order_item` | `order_id` 是字符串（关联 `order_info.id`）；`sku_name` / `price` 保存**下单时的商品快照**；批量插入用 `<foreach>` |
+| `sku_info` | 商品信息（名称 / 售价 / 上下架），创建订单时校验 |
+| `sku_stock` | 库存 + `version` 乐观锁字段；扣减用条件更新 `stock >= n` |
 
-> 脚本里的表名与代码（XML / 注解 SQL）一致；执行前确认库名与 `spring.datasource.url` 里的一致。
+脚本自带初始化数据：4 个 SKU（含 1 个下架）、对应库存（100/200/50/0）、2 条示例订单（1 条已支付 2 条明细、1 条待支付 1 条明细）。设计约定：不建外键、金额统一 `decimal(12,2)`、取消用 `status + cancelled_at`。
+
+> 执行前确认库名与 `spring.datasource.url` 里的一致。
 
 ## 4. 核心实现
 
@@ -218,175 +245,260 @@ spring数据源配置以`spring.datasource`作为前缀，配置项参考`org.sp
 public class MybatisApplication { ... }
 ```
 
-- 作用：把指定包下所有接口注册成 Mapper Bean，之后才能 `@Autowired UserMapper`；
+- 作用：把指定包下所有接口注册成 Mapper Bean，之后才能 `@Autowired OrderInfoMapper`；
 - 机制：`MapperScannerConfigurer` 为每个接口注册 `MapperFactoryBean`，`getObject()` 返回 JDK 动态代理（`MapperProxy`）——**所以 Mapper 接口不需要实现类**；
-- 替代方式：逐个接口加 `@Mapper`，由 MyBatis 自动配置里的 `AutoConfiguredMapperScannerRegistrar` 扫描；它带 `@ConditionalOnMissingBean(MapperScannerConfigurer.class)`，所以两种方式**二选一**；
+- 替代方式：逐个接口加 `@Mapper`，由 MyBatis 自动配置里的 `AutoConfiguredMapperScannerRegistrar` 扫描；它带 `@ConditionalOnMissingBean(MapperScannerConfigurer.class)`，所以两种方式**二选一**。
 
 **② 配置项三件套（不配不报错，但功能不生效）**
 
 ```yaml
 mybatis:
-  mapper-locations: classpath:mapper/*.xml         # XML mapper 才会被加载
-  type-aliases-package: com.hyao.mybatis.entity    # resultType 可用短类名
-  type-handlers-package: com.hyao.mybatis.handler  # 枚举 TypeHandler 才会被注册
+  mapper-locations: classpath:mapper/*.xml                    # XML mapper 才会被加载
+  type-aliases-package: com.hyao.mybatis.entity               # resultType 可用短类名
+  type-handlers-package: com.hyao.mybatis.common.handler      # 枚举 TypeHandler 才会被注册
+  configuration:
+    map-underscore-to-camel-case: true                        # 下划线列名 → 驼峰属性
 ```
 
-- 漏 `mapper-locations` → XML 不加载，调用报 `Invalid bound statement`；漏 `type-aliases-package` → 短类名找不到；漏 `type-handlers-package` → 枚举字段转不了。
+- 漏 `mapper-locations` → XML 不加载，调用报 `Invalid bound statement`；漏 `type-aliases-package` → 短类名找不到；漏 `type-handlers-package` → 枚举字段转不了；
 - 完整的 `mybatis.*` / `mybatis.configuration.*` 配置项见 §3.2.3、§3.2.4。
 
 ### 4.2 具体实现
 
-#### 4.2.1 注解式 Mapper（`UserProfilesMapper`）
+#### 4.2.1 注解式 Mapper（`SkuStockMapper`，最简示例）
 
-SQL 直接写在接口方法的注解里：
+`sku_stock` 只有 4 列、纯单表，最适合第一次写注解 Mapper：
 
 ```java
-public interface UserProfilesMapper {
-    @Insert("INSERT INTO user_profiles(user_id, real_name, birthday, province, city, address, company, bio) " +
-            "VALUES (#{userId}, #{realName}, #{birthday}, #{province}, #{city}, #{address}, #{company}, #{bio})")
-    int insertUserProfiles(UserProfiles userProfiles);
+public interface SkuStockMapper {
 
-    @Select("SELECT * FROM user_profiles WHERE user_id=#{userId}")
-    UserProfiles queryUserProfileByUserId(@Param("userId") String userId);
+    @Select("SELECT sku_id, stock, version FROM `sku_stock` WHERE sku_id = #{skuId}")
+    SkuStock queryBySkuId(@Param("skuId") String skuId);
 
-    @Update("UPDATE user_profiles SET bio = #{bio} WHERE user_id = #{userId}")
-    int updateUserBio(@Param("userId") String userId, @Param("bio") String bio);
+    /** 条件更新扣库存：影响行数 1 = 成功；0 = 库存不足或 SKU 不存在 */
+    @Update("UPDATE `sku_stock` SET stock = stock - #{quantity}, version = version + 1 " +
+            "WHERE sku_id = #{skuId} AND stock >= #{quantity}")
+    int deduck(@Param("skuId") String skuId, @Param("quantity") int quantity);
 
-    @Update("UPDATE user_profiles SET real_name=#{realName}, birthday=#{birthday}, province=#{province}, " +
-            "city=#{city}, address=#{address}, company=#{company}, bio=#{bio} WHERE user_id=#{userId}")
-    int updateUserProfiles(UserProfiles userProfiles);
+    /** 取消订单回补库存 */
+    @Update("UPDATE `sku_stock` SET stock = stock + #{quantity}, version = version + 1 " +
+            "WHERE sku_id = #{skuId}")
+    int restore(@Param("skuId") String skuId, @Param("quantity") int quantity);
 }
+```
+
+- **`@Param`**：多参数必须写，否则只能用 `#{arg0}`/`#{param1}`；
+- **`#{}` 是预编译占位符**，天然防注入；
+- **返回值是影响行数**：`deduck` 返回 0 时业务层抛 `SKU0003`（库存不足）；
+- **条件更新防超卖**：`WHERE stock >= #{quantity}` 让并发下的判断和扣减在一条 SQL 里原子完成，不会扣成负数。
+
+#### 4.2.2 注解里的动态 SQL（`SkuInfoMapper`）
+
+注解里也能写动态 SQL，把整段 SQL 包进 `<script>` 即可：
+
+```java
+@Select({"<script>",
+        "SELECT sku_id, sku_name, price, status FROM `sku_info` WHERE sku_id IN",
+        "<foreach collection='skuIds' item='id' open='(' separator=',' close=')'>#{id}</foreach>",
+        "</script>"})
+List<SkuInfo> queryBySkuIds(@Param("skuIds") List<String> skuIds);
+```
+
+- `OrderService.createOrder` 里先用它**一次 IN 查询**把商品查全，避免 N 次单查；
+- 返回值 `SkuInfo.status` 是 `SkuStatus` 枚举，靠 TypeHandler 转换（见 §4.2.7）；
+- 注解里超过两三行的 SQL 建议放 XML，可读性更好。
+
+#### 4.2.3 XML：`<foreach>` 批量插入（`OrderItemMapper`）
+
+```xml
+<insert id="batchInsert" parameterType="OrderItem" useGeneratedKeys="true" keyProperty="id">
+    INSERT INTO `order_item`
+        (order_id, sku_id, sku_name, price, quantity, amount)
+    VALUES
+    <foreach collection="list" item="item" separator=",">
+        (#{item.orderId}, #{item.skuId}, #{item.skuName}, #{item.price}, #{item.quantity}, #{item.amount})
+    </foreach>
+</insert>
+```
+
+```java
+int batchInsert(List<OrderItem> items);   // 没写 @Param，集合默认叫 list
+```
+
+- **`collection="list"`**：接口参数是 `List` 且没有 `@Param` 时，MyBatis 把它放在 `list`（和 `collection`）键下；写了 `@Param("items")` 就必须用 `collection="items"`；
+- **`useGeneratedKeys` 在 `<foreach>` 批量插入里不要指望回填每一行的自增 id**（MySQL 只回传首个/最后一批 key），本模块明细 id 不需要回填；
+- 每行是一组 `(...)`，`separator=","` 负责拼逗号。
+
+#### 4.2.4 XML：`<resultMap>` + `<collection>` 一对多（`OrderInfoMapper.queryDetail`）
+
+```xml
+<resultMap id="orderDetailMap" type="OrderInfo">
+    <id column="id" property="id"/>
+    <result column="user_id" property="userId"/>
+    <result column="status" property="status"/>
+    <result column="total_amount" property="totalAmount"/>
+    <result column="pay_amount" property="payAmount"/>
+    <result column="receiver_name" property="receiverName"/>
+    <result column="receiver_phone" property="receiverPhone"/>
+    <result column="receiver_address" property="receiverAddress"/>
+    <result column="remark" property="remark"/>
+    <result column="created_at" property="createdAt"/>
+    <result column="updated_at" property="updatedAt"/>
+    <result column="cancelled_at" property="cancelledAt"/>
+    <collection property="items" ofType="OrderItem">
+        <id column="item_id" property="id"/>
+        <result column="sku_id" property="skuId"/>
+        <result column="sku_name" property="skuName"/>
+        <result column="price" property="price"/>
+        <result column="quantity" property="quantity"/>
+        <result column="amount" property="amount"/>
+    </collection>
+</resultMap>
+
+<select id="queryDetail" resultMap="orderDetailMap">
+    SELECT o.id, o.user_id, o.status, o.total_amount, o.pay_amount,
+           o.receiver_name, o.receiver_phone, o.receiver_address, o.remark,
+           o.created_at, o.updated_at, o.cancelled_at,
+           i.id AS item_id, i.sku_id, i.sku_name, i.price, i.quantity, i.amount
+    FROM `order_info` o
+    LEFT JOIN `order_item` i ON i.order_id = o.id
+    WHERE o.id = #{orderId}
+    ORDER BY i.id
+</select>
 ```
 
 要点：
 
-- **`@Param`**：多参数（`updateUserBio`）必须写，否则只能用 `#{arg0}`/`#{param1}`；
-- **`#{}` 是预编译占位符**（`PreparedStatement` 的 `?`），天然防注入；
-- **全字段 `UPDATE` 的坑**（代码注释里也写了）：`updateUserProfiles` 会把所有列都写回去，如果只 set 了部分字段，**没 set 的字段会被写成 `NULL`**——所以要么先查出完整对象再更新，要么像 `updateUserBio` 那样只更新需要改的列；
-- **`gender` 也走 TypeHandler**：`insertUserProfiles` / `updateUserProfiles` 都包含 `gender` 列，`UserProfiles.gender` 是 `Gender` 枚举，写入时由 `GenderTypeHandler` 转成 `tinyint`。
+- **主表的 `<id>` 不能省**：MyBatis 靠它判断「是不是同一条订单」，否则明细会聚合错；
+- **明细主键要起别名**：`i.id AS item_id`，避免与主表 `id` 冲突；
+- **`LEFT JOIN`**：没有明细的订单也能查出来（`items` 为空数组）；
+- `OrderInfo` 上要有一个 `List<OrderItem> items` 字段（非表字段，仅用于聚合）；
+- 这条 SQL **只用于详情**——列表分页不能 join 明细，否则行数被放大，分页就错了。
 
-#### 4.2.2 枚举 ↔ 整型字段：自定义 TypeHandler
+#### 4.2.5 XML：动态条件 + 游标分页（`pageQuery`）
 
-三步：
+```xml
+<select id="pageQuery" parameterType="map" resultType="map">
+    SELECT id, user_id, status, total_amount, pay_amount,
+           receiver_name, receiver_phone, receiver_address
+    FROM `order_info`
+    <where>
+        <if test="lastId != null and lastId != ''">id &lt;= #{lastId}</if>
+        <if test="userId != null and userId != ''">AND user_id = #{userId}</if>
+        <if test="status != null">AND status = #{status}</if>
+        <if test="minAmount != null">AND total_amount &gt;= #{minAmount}</if>
+        <if test="maxAmount != null">AND total_amount &lt;= #{maxAmount}</if>
+        <if test="createdFrom != null">AND created_at &gt;= #{createdFrom}</if>
+        <if test="createdTo != null">AND created_at &lt;= #{createdTo}</if>
+    </where>
+    ORDER BY id DESC
+    LIMIT #{limit}
+</select>
+```
 
-1. **枚举约定一个接口**：
+- `<where>` 自动去掉开头的 `AND`/`OR`，所以 `<if>` 里统一写 `AND ...`；
+- **游标语义（本模块是「包含式」）**：`OrderService` 先 `limit = pageSize + 1` 多查一条；如果查回来 `pageSize + 1` 条，就把**多出来的那条**（下一页第一条）的 id 作为 `nextCursor`，下次请求带 `lastId = nextCursor`，条件 `id <= lastId` 正好从它开始——所以翻页**不会重复也不会漏**；
+- 排序键必须唯一且可比较（雪花 ID 定长且单调）；
+- 索引命中：`idx_status_id(status, id)`、`idx_user_id(user_id, id)`、`idx_created_at`；
+- **`resultType="map"` 时列名保持数据库原名**（`user_id`、`total_amount`），`status` 是原始数字——驼峰映射和 TypeHandler 都不作用于 Map（实测见 §5）。
 
-   ```java
-   public interface BaseEnum { int getCode(); }                 // 数据库里存的整型
-   public enum UserStatus implements BaseEnum { DISABLED(0,"禁用"), NORMAL(1,"正常"), DELETED(2,"删除"); ... }
-   public enum Gender     implements BaseEnum { UNKNOWN(0,"未知"), MALE(1,"男"), FEMALE(2,"女"); ... }
-   ```
+#### 4.2.6 XML：状态更新（`updatePaid` / `updateDelivered` / `updateCancelled`）
 
-2. **写一个泛型基类**（[`BaseEnumTypeHandler<E extends Enum<E> & BaseEnum>`](src/main/java/com/hyao/mybatis/handler/BaseEnumTypeHandler.java)）：构造时把 `code → 枚举` 放进 Map；`setNonNullParameter` 写 `getCode()`；三个 `getNullableResult` 读整型再反查（`rs.wasNull()` 返回 `null`，未知 code 直接抛异常而不是静默返回 null）。
+```xml
+<update id="updatePaid" parameterType="OrderInfo">
+    UPDATE `order_info`
+    SET status = 1, pay_amount = #{payAmount}
+    WHERE id = #{id} AND status = 0          <!-- 只有待支付才能支付 -->
+</update>
 
-3. **子类只需空壳 + 注解**：
+<update id="updateDelivered" parameterType="string">
+    UPDATE `order_info`
+    SET status = 2
+    WHERE id = #{id} AND status = 1          <!-- 只有已支付才能发货 -->
+</update>
 
-   ```java
-   @MappedTypes(Gender.class)
-   @MappedJdbcTypes(JdbcType.INTEGER)
-   public class GenderTypeHandler extends BaseEnumTypeHandler<Gender> {
-       public GenderTypeHandler() { super(Gender.class); }
-   }
-   ```
+<update id="updateCancelled" parameterType="OrderInfo">
+    UPDATE `order_info`
+    <set>
+        status = 4,
+        cancelled_at = #{cancelledAt},
+        <if test="remark != null and remark != ''">remark = #{remark},</if>
+    </set>
+    WHERE id = #{id} AND status IN (0, 1)    <!-- 待支付 / 已支付可取消 -->
+</update>
+```
 
-   再由 `mybatis.type-handlers-package: com.hyao.mybatis.handler` 统一注册生效。
+- **状态机写在 `WHERE` 里**：影响行数 1 才成功，0 说明状态不对 → `OrderService` 抛 `ORD0005`（支付/发货）或 `ORD0006`（取消）；
+- 这样天然幂等：重复支付第二次影响行数 0，不会重复扣款；重复取消同理；
+- `<set>` + `<if>` 演示「只更新传了的字段」（备注），并自动去掉末尾逗号；
+- `cancelOrder` 上加了 `@Transactional`：**取消成功后查明细并回补库存**，两步在同一事务里。
 
-> `UserStatus` / `Gender` 提供了静态工厂 `of(int code)`，`BaseEnumTypeHandler.codeOf()` 也对未知 code 抛 `BizException(BizErrorCode.BIZ_ENUM_ERROR)`（`BIZ0001`）——两处都收敛到同一个业务错误码上，脏数据不会静默变成 `null`。
-
-#### 4.2.3 XML 式 Mapper（`UserMapper` + `user.mapper.xml`）
-
-接口方法上**没有任何 SQL 注解**，SQL 全在 XML 里：
+#### 4.2.7 枚举 ↔ 整型字段：自定义 TypeHandler
 
 ```java
-public interface UserMapper {
-    User queryUserById(String id);                                            // 演示 <sql> + <include>
-    List<Map<String, Object>> pageQueryUserConditional(Map<String, Object> params);  // 演示 <where> + <if>
-    int insertUser(User user);
-    int updateUserSelective(User user);                                       // 演示 <set> + <if>
+public interface BaseEnum { int getCode(); }
+
+public enum OrderStatus implements BaseEnum {
+    PENDING_PAYMENT(0, "待支付"), PAID(1, "已支付"), DELIVERED(2, "已发货"),
+    COMPLETED(3, "已完成"), CANCELLED(4, "已取消");
+    @JsonValue public int getCode() { return code; }     // 响应里输出数字
+}
+public enum SkuStatus implements BaseEnum { ON_SHELF(1, "上架"), OFF_SHELF(0, "下架"); }
+```
+
+```java
+@MappedTypes(OrderStatus.class)
+@MappedJdbcTypes(JdbcType.INTEGER)
+public class OrderStatusTypeHandler extends BaseEnumTypeHandler<OrderStatus> {
+    public OrderStatusTypeHandler(Class<OrderStatus> type) { super(type); }
 }
 ```
 
-```xml
-<mapper namespace="com.hyao.mybatis.mapper.UserMapper">
+- 泛型基类 [`BaseEnumTypeHandler`](src/main/java/com/hyao/mybatis/common/handler/BaseEnumTypeHandler.java)：构造时把 `code → 枚举` 放进 Map；写库时 `ps.setInt(getCode())`，读库时反查；未知 code 抛 `BizException(BIZ_ENUM_ERROR)`（`BIZ0001`）；
+- 子类必须提供 `Class<E>` 构造参数（MyBatis 用反射创建 TypeHandler 时会传目标类型）；
+- **注册**：`mybatis.type-handlers-package: com.hyao.mybatis.common.handler`；
+- **注意 `@JsonValue` 的影响**：`OrderDetailVO.orderStatus` 是枚举，响应里输出的是 **code（数字）**，不是 `"PAID"` 这样的枚举名。
 
-    <sql id="Base_Column_List">
-        id, nickname, avatar, status, created_at, updated_at
-    </sql>
+#### 4.2.8 分布式主键：雪花算法（`SnowflakeIdGenerator`）
 
-    <select id="queryUserById" parameterType="string" resultType="User">
-        SELECT
-            <include refid="Base_Column_List" />
-        FROM user
-        WHERE id = #{id}
-    </select>
+订单号不用数据库自增，而是应用层生成，集群多实例下仍保证全局唯一：
 
-    <select id="pageQueryUserConditional" parameterType="map" resultType="map">
-        SELECT u.id, u.nickname, u.avatar, u.status, u.created_at, u.updated_at,
-               up.gender, up.birthday, up.province, up.city, up.address, up.company, up.bio
-        FROM `user` u
-        LEFT JOIN user_profiles up ON u.id = up.user_id
-        <where>
-            <if test="nextCursor != null and nextCursor != ''">u.id &gt;= #{nextCursor}</if>
-            <if test="status != null">AND u.status = #{status}</if>
-            <if test="gender != null">AND up.gender = #{gender}</if>
-            <if test="beginDate != null">AND up.birthday &gt;= #{beginDate}</if>
-            <if test="endDate != null">AND up.birthday &lt;= #{endDate}</if>
-            <if test="province != null">AND up.province = #{province}</if>
-            <if test="city != null">AND up.city = #{city}</if>
-        </where>
-        ORDER BY u.id ASC
-        LIMIT #{pageSize}
-    </select>
-
-    <update id="updateUserSelective" parameterType="User">
-        UPDATE `user`
-        <set>
-            <if test="nickname != null">nickname = #{nickname},</if>
-            <if test="avatar != null">avatar = #{avatar},</if>
-            <if test="status != null">status = #{status},</if>
-            <if test="deletedAt != null">deleted_at = #{deletedAt},</if>
-        </set>
-        WHERE id = #{id}
-        AND status != 2
-    </update>
-</mapper>
+```java
+public synchronized long nextId() {
+    long currentTimestamp = System.currentTimeMillis();
+    if (currentTimestamp < lastTimestamp) {                 // 时钟回拨
+        long backward = lastTimestamp - currentTimestamp;
+        if (backward <= MAX_BACKWARD_MS) { waitUntil(lastTimestamp); }
+        else { throw new IllegalArgumentException("时钟回拨过大: " + backward + "ms"); }
+    }
+    if (currentTimestamp == lastTimestamp) {
+        sequence = (sequence + 1) & SEQUENCE_MASK;          // 12 位序列
+        if (sequence == 0L) { currentTimestamp = waitNextMillis(lastTimestamp); }
+    } else { sequence = 0L; }
+    lastTimestamp = currentTimestamp;
+    return ((currentTimestamp - EPOCH) << TIMESTAMP_SHIFT)  // 41 位时间戳
+            | (datacenterId << DATACENTER_ID_SHIFT)         // 5 位数据中心
+            | (workerId << WORKER_ID_SHIFT)                 // 5 位机器
+            | sequence;
+}
 ```
 
-**XML 里用到的知识点**
+- 布局：`41 位时间戳 + 5 位 datacenterId + 5 位 workerId + 12 位序列`；`EPOCH = 2020-01-01`；
+- 输出是 `long`，`OrderService` 里 `String.valueOf(...)` 后作为订单号（`varchar(32)`），实测订单号形如 `900383869839081472`；
+- **集群要求**：每个实例的 `workerId` 必须不同（见 §3.2.5），否则会生成重复 ID；
+- 时钟回拨 ≤ 5ms 自旋等待，超过直接抛异常（宁可拒绝生成，也不要撞号）；
+- 同毫秒序列用尽时自旋到下一毫秒。
 
-| 点 | 说明 |
-| --- | --- |
-| `namespace` | 必须是 Mapper 接口的全限定名，MyBatis 靠它把接口和 XML 绑定起来 |
-| statement `id` | 必须等于接口方法名，否则 `Invalid bound statement (not found)` |
-| `<sql>` + `<include>` | 把列清单抽成片段复用，避免到处写 `SELECT *` |
-| `<where>` | 自动去掉开头多余的 `AND` / `OR`，所以每个 `<if>` 里可以放心写 `AND ...` |
-| `<set>` | 自动去掉末尾多余的逗号，配合 `<if>` 实现"只更新非空字段" |
-| `parameterType` | 可省略；`string` / `map` / `User` 用的是别名（`type-aliases-package`） |
-| `resultType` | 实体写 `User`（走驼峰映射 + TypeHandler）；联表/多列直接返回 `map` |
-| XML 转义 | `>=`、`<=` 要写成 `&gt;=`、`&lt;=`，或整段包进 `<![CDATA[ ]]>` |
-| `LIMIT #{pageSize}` | 占位符可以用于 `LIMIT`（MySQL 支持），不要用 `${}` 拼 |
+#### 4.2.9 持久层异常（`DbExceptionHandler`）
 
-**分页为什么是 `id >= #{nextCursor}`**：这是 keyset（游标）分页——不做 `offset` 跳页，翻页时带上「上一页返回的下一页起始 id」；第一页没有游标，`<if test="nextCursor != null and nextCursor != ''">` 会把整个条件省掉，`ORDER BY id ASC LIMIT n` 因此**深翻页不会越来越慢**。代价是只能顺序翻页，而且排序键必须唯一且可比较（这里 `id` 是 `u0000001` 这种可比较的字符串）。`UserService` 里用「多查一条」判断 `hasNextPage`，并把多出来那条的 id 作为 `nextCursor` 返回。
-
-**实测（本地 MySQL，2026-10-18 运行结果）**
-
-| 请求 | 实际响应 |
-| --- | --- |
-| `POST /user/queryById`，body `{"id":"u0000001"}` | `{"code":"SUC0000","message":"操作成功","data":{"nickname":"hyao feng","id":"u0000001","avatar":"123","createAt":"2026-10-18","status":"NORMAL"}}` |
-| `POST /user/pageQueryConditional`，body `{"pageSize":2}` | `{"code":"SUC0000","message":"操作成功","data":{"hasNextPage":true,"nextCursor":"u0334220","resultData":[{"id":"u0000001","created_at":"2026-10-18T15:29:41","updated_at":"2026-10-18T16:16:02","gender":0,...}, ...]}}` |
-| `POST /user/pageQueryConditional`，body `{}` | `400` + `{"code":"SYS0004","message":"参数校验失败: pageSize: 不能为空","data":null}`（参数校验迁到 DTO + `@Valid` 后，见 §4.2.5） |
-
-> 从响应里能看出两个知识点：① 实体查询时 `status` 返回的是**枚举名** `"NORMAL"`（库里 `status=1`，与 `UserStatus.NORMAL(1)` 一致）；② `resultType="map"` 时列名保持**下划线**（`created_at`）、`gender` 是**原始数字**、时间按 ISO 输出——**驼峰映射和 TypeHandler 都不作用于 Map**。
-
-#### 4.2.4 持久层异常：模块自己的 advice
-
-[`DbExceptionHandler`](src/main/java/com/hyao/mybatis/exception/DbExceptionHandler.java)：
+[`DbExceptionHandler`](src/main/java/com/hyao/mybatis/common/exception/DbExceptionHandler.java)：
 
 ```java
 @Slf4j
-@Order(Ordered.HIGHEST_PRECEDENCE)          // 关键：必须优先于公共库的 Exception 兜底
+@Order(1)
 @RestControllerAdvice
 public class DbExceptionHandler {
+
     @ExceptionHandler(DataAccessException.class)
     public Result<Void> handleDataAccessException(DataAccessException e) {
         log.error("数据库操作异常", e);        // 细节（SQL、表名）只进日志
@@ -395,14 +507,40 @@ public class DbExceptionHandler {
 }
 ```
 
-**为什么必须加 `@Order(HIGHEST_PRECEDENCE)`**：00 模块的全局异常处理里有一个 `@ExceptionHandler(Exception.class)` 兜底方法，它同样能匹配 `DataAccessException`；多个 advice 之间是「按 `@Order` 排序后取第一个能匹配的方法」，不排到最前面的话，持久层异常会先被兜底接走变成 `SYS0001`。实测（临时探针，已删除）：
+- MyBatis 的 `PersistenceException` 会被 `MyBatisExceptionTranslator` 转成 Spring 的 `DataAccessException`，所以这里能用 `@ExceptionHandler(DataAccessException.class)` 统一成 `DBE0001`；
+- 加上注解`@Order(1)` ，保证它优先于 00 的 `@ExceptionHandler(Exception.class)` 兜底，`@Order` 应标在**类**上（或让类实现 `Ordered`）。
 
-| 抛出的异常                                                         | 处理者               | 响应                                                      |
-| ------------------------------------------------------------------ | -------------------- | --------------------------------------------------------- |
-| `DataAccessResourceFailureException`（`DataAccessException` 子类） | `DbExceptionHandler` | `200` + `{"code":"DBE0001",...}`                          |
-| `IllegalStateException`                                            | 00 模块兜底方法      | `200` + `{"code":"SYS0001","message":"系统内部异常",...}` |
+#### 4.2.10 请求参数校验（DTO + `@Valid`）
 
-因此 Service 里不用再写 try-catch：持久层异常自动带 `DBE0001`，其他异常走公共库兜底；SQL、表名等细节只进日志。
+请求一律用 DTO + 约束注解，失败由 00 模块统一返回 `400 + SYS0004`：
+
+```java
+@Data
+public class OrderCreateRequest {
+    @NotBlank(message = "不能为空") private String userId;
+    @NotBlank(message = "不能为空") @Size(max = 32) private String receiverName;
+    @NotBlank(message = "不能为空") @Size(max = 255) private String receiverAddress;
+    @NotBlank(message = "不能为空") @Pattern(regexp = "^1\\d{10}$", message = "手机号格式不正确") private String receiverPhone;
+    @Size(max = 255) private String remark;
+    @NotEmpty(message = "至少一条订单明细") private List<OrderItemRequest> items;   // ⚠️ 少了 @Valid，见 §4.4
+}
+
+@Data
+public class OrderItemRequest {
+    @NotBlank(message = "不能为空") private String skuId;
+    @NotNull(message = "不能为空") @Min(value = 1, message = "至少为 1") @Max(value = 999, message = "最多为 999")
+    private Integer quantity;
+}
+```
+
+```java
+@PostMapping("/create")
+public Map<String, Object> createOrder(@Valid @RequestBody OrderCreateRequest req) { ... }
+```
+
+- 校验失败响应形如 `400` + `{"code":"SYS0004","message":"参数校验失败: pageSize分页大小不能为空","data":null}`（message 格式是「参数校验失败: 字段名+提示」）；
+- **嵌套集合的校验需要 `@Valid` 级联**：`items` 上只有 `@NotEmpty`，没有 `@Valid`，所以明细里的 `quantity=0`、`skuId` 为空**不会**被拦截（见 §4.4）；
+- `@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")` 控制时间入参/出参格式（`OrderCancelRequest.cancelledAt`、`OrderDetailVO` 的时间字段）。
 
 ### 4.3 依赖之间怎么组合关联的
 
@@ -432,7 +570,7 @@ public class DbExceptionHandler {
 | 池本体                   | `DruidDataSource`                                                       | `getConnectionDirect → getConnectionInternal → takeLast` 取连接，`recycle` 归还                                                                                                  |
 
 ```
-userMapper.queryUserById("u0000001")              // MapperProxy（JDK 动态代理）
+orderInfoMapper.queryDetail("ORD20261019000001")  // MapperProxy（JDK 动态代理）
 └─ SqlSessionTemplate.selectOne(...)              // SqlSessionInterceptor 拦下
    └─ SqlSessionUtils.getSqlSession(factory)      // ★ 先看当前线程有没有绑定 SqlSession
       ├─ 有（在 Spring 事务里）→ 复用
@@ -457,118 +595,111 @@ userMapper.queryUserById("u0000001")              // MapperProxy（JDK 动态代
 三个容易搞混的点：
 
 - **两种"连接"不是一回事**：`DataSourceUtils.getConnection()` 返回的是 `DruidPooledConnection`（池化的逻辑连接），它的 `close()` 是 `recycle()` 回池，不是关物理连接；
-- **有没有 `@Transactional` 行为不同**：没有事务时"借 → 用 → 还"（下一条 SQL 再借）；有事务时连接绑在线程上，**同一事务共用一条连接**，直到提交/回滚才释放——`UserService.insertUser` 上就有一个 `@Transactional`，两条 insert 共用同一条连接；
+- **有没有 `@Transactional` 行为不同**：没有事务时"借 → 用 → 还"（下一条 SQL 再借）；有事务时连接绑在线程上，**同一事务共用一条连接**，直到提交/回滚才释放——`OrderService.createOrder` 的 `@Transactional` 就让「扣库存 → 插订单 → 批插明细」这几条 SQL 共用一条连接，任何一步抛异常整体回滚；
 - **换连接池为什么只改配置**：MyBatis 只依赖 `javax.sql.DataSource` 接口，`SpringManagedTransaction` 拿到的就是容器里的 DataSource Bean。
 
 **想自己验证**：在 `SpringManagedTransaction.getConnection()`、`DataSourceUtils.getConnection()`、`DruidDataSource.getConnectionInternal()` 上打断点看调用栈；或用 `DruidDataSource.getActiveCount()`（开 Druid 监控页）对比有无事务；MySQL 侧 `SHOW PROCESSLIST` 看物理连接数应在 `initial-size`/`min-idle` 量级。
 
 ### 4.4 容易踩坑的点
 
-- `@MapperScan` 的包必须覆盖**所有** Mapper 接口（本模块踩过：包名写旧 → 启动后 Mapper 注入失败）；Mapper 接口**不要**同时写实现类，否则调用会绕过代理走你的实现；
+- `@MapperScan` 的包必须覆盖**所有** Mapper 接口；Mapper 接口**不要**同时写实现类，否则调用会绕过代理；
 - `@MapperScan` 与 `@Mapper` 二选一：配了 `@MapperScan` 后 MyBatis 的自动 `@Mapper` 扫描器会退让（`@ConditionalOnMissingBean(MapperScannerConfigurer.class)`），**另一个包里的 `@Mapper` 接口不会被扫到**；
-- Spring Boot 2.6+ 默认 `spring.main.allow-bean-definition-overriding=false`，同一 Mapper 接口被扫描注册两次会直接启动失败；
-- 自定义 TypeHandler 必须被注册（`type-handlers-package` 或 `@MappedTypes`），否则枚举字段转换失败；
-- XML 的 `namespace` 是接口全限定名、statement `id` 必须等于方法名，否则 `Invalid bound statement`；
-- **`resultType="map"` 不走驼峰、不走 TypeHandler**：列名保持下划线、枚举返回数字（实测见 §4.2.3）；
-- `<where>` 会自动去掉首个 `AND`/`OR`、`<set>` 会自动去掉尾逗号——所以 `<if>` 里可以放心写 `AND ...`、`xxx = #{xxx},`；但 `<set>` 里**一个字段都没有**时会生成非法的 `UPDATE ... SET WHERE`；
-- XML 里 `>`、`<` 要写成 `&gt;`、`&lt;`（或包进 CDATA），否则 XML 解析失败；
-- keyset 分页要求排序键**唯一且可比较**（`id` 是字符串时按字典序），否则会漏数据或重复；
-- `useGeneratedKeys="true" keyProperty="id"` 只能用于**自增主键**表（本模块 id 是 varchar 手动生成的，所以 XML 的 insert 没写它）；
+- 自定义 TypeHandler 必须被注册（`type-handlers-package` 指向 `com.hyao.mybatis.common.handler`，或子类上加 `@MappedTypes`），否则枚举字段转换失败；
+- **`@Order` 要标在 advice 类上**：把 `@Order(1)` 标在方法上，对「多个 advice 之间谁先匹配」不起作用；要压过 00 的 `Exception` 兜底，必须加类级 `@Order`（或实现 `Ordered`）；
+- **`resultType="map"` 不走驼峰、不走 TypeHandler**：列名保持下划线、`status` 是数字（实测见 §5）；
+- **XML 里 `>`、`<` 要转义**（`&gt;`、`&lt;`），否则 XML 解析失败；
+- **列表分页不要 join 明细**：一对多会放大行数，分页结果就错了（详情才用 join + `<collection>`）；
+- **游标分页的 nextCursor 是「多查一条」的那条的 id**：SQL 用 `id <= #{lastId}`；如果改成 `id <`，要么把 nextCursor 换成当前页最后一条，否则会漏掉一条；
+- **`<foreach>` 的 collection 名字**：`List` 参数没加 `@Param` 时叫 `list`（或 `collection`）；加了 `@Param("items")` 就必须写 `collection="items"`；
+- **批量插入的 `useGeneratedKeys` 别指望回填每行 id**：MySQL 只回传首个/最后一批 key，多行 `<foreach>` 拿不到逐个 id；
+- **嵌套 DTO 的约束需要 `@Valid` 级联**：如果`OrderCreateRequest.items` 上没有 `@Valid`，明细里的 `quantity`、`skuId` 约束不会触发；
+- **雪花 ID 的集群要求**：同 `workerId + datacenterId` 的实例会生成重复订单号；时钟回拨超过 5ms 会抛异常（这是有意的保护）；
 - `mybatis.configuration.log-impl: StdOutImpl` 会绕过 slf4j：SQL 日志不带 traceId、不进文件；改用 `logging.level.<mapper包>: debug`；
 - `config-location` 与 `configuration.*` 同时配置会启动报错，二选一；
 - Druid：`max-wait` 打满后抛 `GetConnectionTimeoutException`；`test-while-idle` 要配 `validation-query` 才有意义；`initial-size` 在库连不上时启动即失败；
-- 枚举未知 `code` 会抛异常而不是静默返回 `null`（枚举工厂和 `BaseEnumTypeHandler` 都抛 `BIZ0001`）——这是有意的，让脏数据早暴露。
-
-> 数据 / 表名 / 字段层面的检查结果（已修复项 + 仍存在的 4 条）集中记录在 §4.2.3 的问题清单。
+- 枚举未知 `code` 会抛 `BizException(BIZ_ENUM_ERROR)`（`BIZ0001`），让脏数据早暴露。
 
 ## 5. 快速验证
 
 前置条件：
 
 1. 启动本地 MySQL，创建库 `hyao`；
-2. 执行 [`script/1.sql`](src/main/resources/script/1.sql)（建 `user`、`user_profiles`，表名与代码一致）；
+2. 执行 [`script/1.sql`](src/main/resources/script/1.sql)（建四张表 + 初始化 4 个 SKU、库存、2 条示例订单）；
 3. 按需修改 `application.yaml` 的账号密码（`useSSL=true&requireSSL=true` 要求 MySQL 开了 SSL，本地没开会连不上，去掉 `requireSSL` 即可）；
 4. IDEA 里运行 [`MybatisApplication`](src/main/java/com/hyao/mybatis/MybatisApplication.java) 的 `main`（端口 8083，同一端口同时只能跑一个实例）。
 
 ```bash
-# 按 id 查询（XML Mapper：<sql> + <include>）
-curl -X POST http://localhost:8083/user/queryById \
-  -H 'Content-Type: application/json' -d '{"id":"u0000001"}'
+# 订单详情（示例订单，演示 resultMap + collection）
+curl -X POST http://localhost:8083/order/detail \
+  -H 'Content-Type: application/json' -d '{"orderId":"ORD20261019000001"}'
 
-# 条件分页（XML Mapper：<where> + <if> + keyset 分页）
-curl -X POST http://localhost:8083/user/pageQueryConditional \
+# 订单列表（动态条件 + 游标分页，pageSize 必填）
+curl -X POST http://localhost:8083/order/page \
   -H 'Content-Type: application/json' -d '{"pageSize":2}'
-curl -X POST http://localhost:8083/user/pageQueryConditional \
-  -H 'Content-Type: application/json' -d '{"pageSize":3,"status":1}'
 
-# 参数校验失败的情况（缺 pageSize / 超出范围 / 日期格式错）
-curl -X POST http://localhost:8083/user/pageQueryConditional \
-  -H 'Content-Type: application/json' -d '{}'
-curl -X POST http://localhost:8083/user/pageQueryConditional \
-  -H 'Content-Type: application/json' -d '{"pageSize":1000}'
-curl -X POST http://localhost:8083/user/pageQueryConditional \
-  -H 'Content-Type: application/json' -d '{"pageSize":2,"beginDate":"2020/01/01"}'
+# 创建订单（SKU001 ×1：扣库存 + 插订单 + 批插明细，同一事务）
+curl -X POST http://localhost:8083/order/create -H 'Content-Type: application/json' -d '{
+  "userId":"uid000000001","receiverName":"hyao","receiverPhone":"13800000000",
+  "receiverAddress":"北京市海淀区中关村大街 1 号","remark":"示例",
+  "items":[{"skuId":"SKU001","quantity":1}]}'
 
-# 写操作（会改数据，按需执行）
-curl -X POST http://localhost:8083/user/insert -H 'Content-Type: application/json' \
-  -d '{"nickname":"hyao","avatar":"","birthday":"2000-01-01","gender":1}'
-curl -X POST http://localhost:8083/user/update -H 'Content-Type: application/json' \
-  -d '{"id":"u0000002","nickname":"hyao feng","avatar":"123"}'
-curl -X POST http://localhost:8083/user/delete -H 'Content-Type: application/json' \
-  -d '{"id":"u0000002"}'
+# 支付 / 发货 / 取消（把 <orderId> 换成真实订单号）
+curl -X POST http://localhost:8083/order/pay \
+  -H 'Content-Type: application/json' -d '{"orderId":"<orderId>","payAmount":399.00}'
+curl -X POST http://localhost:8083/order/deliver \
+  -H 'Content-Type: application/json' -d '{"orderId":"<orderId>"}'
+curl -X POST http://localhost:8083/order/cancel \
+  -H 'Content-Type: application/json' -d '{"orderId":"<orderId>","cancelledAt":"2026-10-20 22:30:00","remark":"不想要了"}'
 ```
 
-实测（只跑了查询，写接口没跑以免改动现有数据）：
+实测（本地 MySQL，2026-10-20 运行结果；创建/支付/取消后的测试订单已清理，库存也回补到原值）：
 
 | 请求 | 结果 |
 | --- | --- |
-| `POST /user/queryById` `{"id":"u0000001"}` | `200` + `{"code":"SUC0000","message":"操作成功","data":{"nickname":"hyao feng","id":"u0000001","avatar":"123","createAt":"2026-10-18","status":"NORMAL"}}` |
-| `POST /user/pageQueryConditional` `{"pageSize":2}` | `200` + `data.hasNextPage=true`、`data.nextCursor="u0334220"`、`data.resultData` 2 条（key 为 `created_at` 等下划线列名） |
-| `POST /user/pageQueryConditional` `{"pageSize":2,"nextCursor":"u0272f98"}` | `200`，第二页从 `u0272f98` 开始（包含式游标），`data.nextCursor="u048f425"` |
-| `POST /user/pageQueryConditional` `{}` | `400` + `{"code":"SYS0004","message":"参数校验失败: pageSize: 不能为空","data":null}` |
-| `POST /user/pageQueryConditional` `{"pageSize":0}` | `400` + `{"code":"SYS0004","message":"参数校验失败: pageSize: 至少为 1","data":null}` |
-| `POST /user/pageQueryConditional` `{"pageSize":1000}` | `400` + `{"code":"SYS0004","message":"参数校验失败: pageSize: 最多为 100","data":null}` |
-| `POST /user/pageQueryConditional` `{"pageSize":"abc"}` | `400` + `{"code":"SYS0004","message":"参数校验失败，请求体解析失败","data":null}` |
-| `POST /user/pageQueryConditional` `{"pageSize":2,"beginDate":"2020/01/01"}` | `400` + `{"code":"SYS0004","message":"参数校验失败: beginDate: 格式必须为 yyyy-MM-dd","data":null}` |
-| `POST /user/pageQueryConditional` `{"pageSize":"2"}` | `200`（Jackson 把字符串 `"2"` 强转成数字），要触发解析失败得传非数字 |
+| `POST /order/detail` `{"orderId":"ORD20261019000001"}` | `200` + `{"code":"SUC0000","message":"操作成功","data":{"id":"ORD20261019000001","userId":"uid000000001","orderStatus":2,"totalAmount":528.00,"payAmount":528.00,"receiverName":"hyao","createdAt":"2026-10-19 21:27:31","cancelledAt":"1970-01-01 00:00:00","items":[{"id":1,"skuId":"SKU001","skuName":"机械键盘","price":399.00,"quantity":1,"amount":399.00},{"id":2,"skuId":"SKU002","skuName":"无线鼠标","price":129.00,"quantity":1,"amount":129.00}]}}` |
+| `POST /order/page` `{"pageSize":2}` | `200` + `data.hasNextPage=true`、`data.nextCursor="900381547754946560"`、`data.rows` 2 条（key 为 `user_id`/`total_amount` 等下划线列名，`status` 是数字） |
+| `POST /order/page` `{}` | `400` + `{"code":"SYS0004","message":"参数校验失败: pageSize分页大小不能为空","data":null}` |
+| `POST /order/create`（SKU001 ×1） | `200` + `{"code":"SUC0000","message":"操作成功","data":{"orderId":"900383869839081472"}}`（雪花 ID，每次不同） |
+| `POST /order/create`（`items: []`） | `400` + `{"code":"SYS0004","message":"参数校验失败: items至少一条订单明细","data":null}` |
+| `POST /order/create`（SKU004，已下架） | `200` + `{"code":"SKU0002","message":"商品已下架: SKU004","data":null}` |
+| 新订单 `POST /order/detail` | `200` + `orderStatus:0`、`payAmount:0.00`、`items` 1 条 |
+| `POST /order/pay`（`payAmount:399.00`） | `200` + `{"code":"SUC0000","message":"操作成功","data":null}`；再查详情 `orderStatus:1`、`payAmount:399.00` |
+| `POST /order/cancel`（已支付） | `200` + `data:null`；库存回补（`sku_stock.stock` 回到下单前的值） |
+| 重复 `POST /order/cancel` | `200` + `{"code":"ORD0006","message":"订单取消失败, 不存在待支付或已支付订单: <orderId>","data":null}` |
+| 已取消订单再 `POST /order/pay` | `200` + `{"code":"ORD0005","message":"订单状态更新失败, 不存在待支付订单: <orderId>","data":null}` |
 
-SQL 日志（走统一日志格式，带 traceId；下面截取了实测日志的可见部分）：
-
-```
-DEBUG [faf9c972e15e43e1ad4bc7141bd8ab8d] c.h.m.mapper.UserMapper.queryUserById - ==>  Preparing: SELECT id, nickname, avatar, status, created_at, updated…
-DEBUG [faf9c972e15e43e1ad4bc7141bd8ab8d] c.h.m.mapper.UserMapper.queryUserById - <==      Total: 1
-DEBUG [d78ccffd9a3e44c0bf8893e51d9bf06d] c.h.m.m.U.pageQueryUserConditional - ==>  Preparing: SELECT u.id, u.nickname, u.avatar, u.status, u.created_at, …
-DEBUG [d78ccffd9a3e44c0bf8893e51d9bf06d] c.h.m.m.U.pageQueryUserConditional - <==      Total: 3
-```
+> 从响应能看出几个知识点：① 详情里 `orderStatus` 是**数字**（枚举上的 `@JsonValue` 生效）；② 列表 `rows` 是**原始 map**，列名下划线、`status` 数字；③ 业务失败（库存不足、下架、状态不对）都是 `200 + 业务码`，参数校验失败才是 `400 + SYS0004`。
 
 ## 6. 常见问题与踩坑
 
 | 现象 | 原因 / 解法 |
 | --- | --- |
-| `Table 'hyao.user' doesn't exist` | 代码里表名是 `user` / `user_profiles`（脚本已同步）；如果你用的是老脚本（`user_tbl` / `user_profiles_tbl`），先统一表名 |
-| `resultType="map"` 返回的 key 是 `created_at`、`gender` 是数字 | 驼峰映射与 TypeHandler 都只作用于 POJO / 实体；需要驼峰或枚举就返回实体，或用 `<resultMap>` 显式映射 |
-| `UserProfiles` 的 `createdAt` / `updatedAt` 拿到 `null` | 列名是 `created_at` / `updated_at`，驼峰映射对应 `createdAt` / `updatedAt`；字段名与列名不一致时要么改名，要么写 `<resultMap>` |
-| `Duplicate entry 'u0000001' for key 'PRIMARY'` | `insertUser` 里 id 写死成 `u0000001`，第二次插入就冲突（需要 ID 生成策略） |
-| `SQLSyntaxErrorException ... 'where clause'` | `updateUserSelective` 的 `<if>` 都不命中，生成了 `UPDATE user SET WHERE id = ?`；在 `<set>` 末尾加 `updated_at = updated_at` 兜底，或业务层提前拒绝空更新 |
-| `deleted_at` 一直是 `1970-01-01` | 逻辑删除只改了 `status=2`，没有写 `deleted_at` |
-| `{"code":"SYS0004","message":"参数校验失败: pageSize: 不能为空"}` | `pageQueryConditional` 缺 `pageSize`（`@Valid` 生效，返回 400） |
-| `{"code":"SYS0004","message":"参数校验失败，请求体解析失败"}` | 请求体不是合法 JSON，或字段类型无法转换（如 `pageSize:"abc"`）；注意 `"2"` 这种字符串会被 Jackson 强转成数字，不会报错 |
-| 参数校验根本没触发 | 忘了在参数上标 `@Valid`；或者想校验 `@RequestParam` / `@PathVariable` 却没在 Controller 类上标 `@Validated` |
-| `Invalid bound statement (not found)` | `namespace` / statement `id` 与接口对不上，或 `mapper-locations` 没匹配到 XML 文件 |
-| `Unknown code: 9` / `BIZ0001` | 库里值不在枚举范围内：枚举工厂与 `BaseEnumTypeHandler` 都抛 `BizException(BIZ_ENUM_ERROR)`；要么补枚举值，要么清洗数据 |
-| 启动报 `Communications link failure` / `Connection refused` | MySQL 没启动；或 url 里的 `useSSL=true&requireSSL=true` 与服务器不一致（本地没开 SSL 就去掉 `requireSSL`） |
-| SQL 日志没有 traceId / 没进文件 | 用了 `log-impl: StdOutImpl`；删掉它、改用 `logging.level.<mapper包>: debug` |
-| `MessageFormat` 的参数被吞掉 | `new BizException(code, "参数")` 的参数是填进 `code.getMessage()` 占位符的；文案里没有 `{0}` 时会被静默忽略（`DB_ERROR` 就没有占位符） |
-| `Parameter 'xxx' not found` | 多参数没用 `@Param`（单参数是 POJO / Map 时才可省略） |
-| XML mapper 根本没被加载 | `mapper-locations` 与文件位置不匹配（`*` 只匹配一层目录） |
+| `{"code":"SYS0004","message":"参数校验失败: pageSize分页大小不能为空"}` | `pageSize` 必填（`@NotNull`），列表接口必须传 |
+| 明细里 `quantity:0`、`skuId:""` 没被拦下 | `OrderCreateRequest.items` 上没有 `@Valid`，嵌套约束不会级联；补上 `@Valid` 即可 |
+| `{"code":"SKU0001","message":"商品不存在: [...]"}` | `sku_info` 里没有该 SKU；检查入参与初始化数据 |
+| `{"code":"SKU0002","message":"商品已下架: SKU004"}` | `sku_info.status = 0`；下单前必须校验上架状态 |
+| `{"code":"SKU0003","message":"库存不足: SKU001"}` | 扣库存影响行数 0；并发下不会扣成负数（条件是 `stock >= n`） |
+| `{"code":"ORD0005",...}` / `{"code":"ORD0006",...}` | 状态不允许该操作（重复支付 / 重复取消 / 已发货再发货）；`WHERE status = 前置状态` 保证了幂等 |
+| 创建订单后库存没变 / 变了没回滚 | 检查 `@Transactional` 是否在**对外方法**上（自调用会失效）；`createOrder` 里任何一步抛异常都会整体回滚 |
+| 翻页重复或漏数据 | 游标语义要一致：本模块 `nextCursor` 是「多查一条」的 id，SQL 用 `id <= lastId`；换成 `id <` 就要把游标改成当前页最后一条 |
+| `resultType="map"` 的 key 是 `user_id`、`status` 是数字 | 驼峰映射与 TypeHandler 只作用于实体；需要驼峰/枚举就返回实体，或用 `<resultMap>` |
+| `Invalid bound statement (not found)` | `namespace` / statement `id` 与接口对不上，或 `mapper-locations` 没匹配到 XML |
+| 枚举查出来报 `BIZ0001` | 库里值不在枚举范围（`OrderStatus` 0~4 / `SkuStatus` 0~1）；补枚举值或清洗数据 |
+| 持久层异常返回 `SYS0001` 而不是 `DBE0001` | `DbExceptionHandler` 的 `@Order(1)` 标在方法上不生效；把 `@Order` 移到**类上** |
+| 集群部署后偶尔 `Duplicate entry` / 订单号重复 | 两个实例的 `workerId + datacenterId` 相同；给每个实例注入不同 `WORKER_ID` |
+| 前端拿到的明细 id 精度丢失 | `order_item.id` 是 `Long`，JSON 数字超过 2^53 会丢精度；把 Long 序列化成字符串 |
+| 启动报 `Communications link failure` / `Connection refused` | MySQL 没启动；或 url 的 `useSSL=true&requireSSL=true` 与服务器不一致 |
+| SQL 日志没有 traceId / 没进文件 | 用了 `log-impl: StdOutImpl`；改用 `logging.level.<mapper包>: debug` |
+| `Parameter 'xxx' not found` | 参数名与 `#{}` 对不上：单参数 POJO/Map 可直接用属性名，多参数必须 `@Param` |
 
 ## 7. 学习笔记
 
+- **注解 Mapper vs XML Mapper 怎么分工**：注解适合「单表 + 一句话 SQL」（`SkuStockMapper`）；只要出现动态 SQL、`resultMap`、批量，就放 XML——注解里写 `<script>` 虽然能跑，但可读性差。
 - **Mapper 接口为什么不用实现类**：`@MapperScan` → `MapperFactoryBean` → `MapperProxy`（JDK 动态代理），调用最终落到 `SqlSessionTemplate`。
-- **枚举落库的三种做法**：`EnumTypeHandler`（存 `name()` 字符串）、`EnumOrdinalTypeHandler`（存 `ordinal()` 序号）、自定义 TypeHandler（存自己的 `code`）。本模块选第三种：**序号会随枚举顺序变化、字符串占空间**，用自定义 `code` 最稳。
-- **全字段更新 vs 选择性更新**：`UPDATE ... SET 所有列` 必须先把整行查出来再改，否则没传的字段会被覆盖成 `NULL`；`<set>` + `<if>` 才是"只更新传了的字段"的正确姿势。
-- **keyset（游标）分页 vs offset 分页**：`WHERE id >= 游标 ORDER BY id LIMIT n` 的深翻页成本恒定；`LIMIT offset, n` 的 `offset` 越大越慢。keyset 的代价是不能跳页，且游标键必须唯一、可比较。
-- **公共库与本模块的分工**：响应包装 / 全局异常兜底 / **参数校验** / traceId 在 `00-springboot-common`；本模块只补「持久层异常 → `DBE0001`」、业务错误码（`BIZ0001`），以及校验用的 DTO 和约束。
-- **空 `<set>` 不能靠 `<set>` 自己兜住**：`<set>` 只负责去掉多余逗号，一个字段都没有时仍会生成非法的 `SET WHERE`；要么业务层拒绝空更新，要么在末尾放一句恒真赋值（`updated_at = updated_at`）。
-- **keyset 分页的游标语义**：本模块用的是**包含式**游标（`id >= nextCursor`，`nextCursor` = 下一页第一条记录的 id，所以第一页没有游标）；也可以改成**排除式**（`id > lastId`，`lastId` = 上一页最后一条）、更常见、不易混淆。两种都要求排序键唯一且可比较，并按 `(排序键)` 建索引。
-- **练习路线**：先把 §4.2.3 里"还剩一点"收尾（空 `<set>` 兜底），再按 §2 里 ⬜ 的优先级补（主键生成策略 → `resultMap`/关联查询 → 动态 SQL 补全 → 批量 → 测试 → 缓存），每补完一项就把状态改成 ✅。
+- **分布式主键（雪花）的取舍**：不用数据库自增，换来水平扩展能力；代价是必须给每个实例分配唯一 `workerId`，并处理时钟回拨（回拨 ≤5ms 等待，超过拒绝生成）。
+- **库存扣减为什么用条件更新**：`UPDATE ... SET stock = stock - ? WHERE stock >= ?` 把「判断 + 扣减」放在一条 SQL 里，靠影响行数判断结果，不依赖先读后写，并发下不会超卖；乐观锁 `version` 适合「读多改少且需要检测并发修改」的场景。
+- **状态机写在 `WHERE` 里**：`WHERE id = ? AND status = 前置状态`，影响行数 1 才算成功——重复请求第二次影响 0 行，天然幂等。
+- **keyset 游标分页**：`WHERE id <= 游标 ORDER BY id DESC LIMIT n+1`，多查一条判断 `hasNextPage`，把多出来的那条作为 `nextCursor`；深翻页成本恒定，但只能顺序翻、并且排序键必须唯一且可比较。
+- **`resultType="map"` 的边界**：列名不驼峰、枚举不转换——列表页要「原样返回」时很方便，需要类型安全就返回实体/VO。
+- **事务与连接的关系**：`@Transactional` 下「扣库存 + 插订单 + 批插明细」共用一条连接，任何一步异常整体回滚；这也是一级缓存只在同一 SqlSession/事务内有效的原因。
+- **待补充**：批量发货、报表、字典缓存、多数据源、换池实验、Druid 监控页、集成测试。

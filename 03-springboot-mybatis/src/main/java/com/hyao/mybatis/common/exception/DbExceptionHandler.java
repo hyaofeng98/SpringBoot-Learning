@@ -1,4 +1,4 @@
-package com.hyao.mybatis.exception;
+package com.hyao.mybatis.common.exception;
 
 import com.hyao.common.model.Result;
 import com.hyao.mybatis.common.errorcode.BizErrorCode;

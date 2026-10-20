@@ -1,0 +1,91 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hyao.mybatis.mapper.OrderInfoMapper">
+
+    <!-- 插入订单 -->
+    <insert id="insert" parameterType="OrderInfo">
+        INSERT INTO `order_info`
+        (id, user_id, status, total_amount, pay_amount, receiver_name, receiver_phone, receiver_address, remark)
+        VALUES
+        (#{id}, #{userId}, #{status}, #{totalAmount}, #{payAmount}, #{receiverName}, #{receiverPhone}, #{receiverAddress}, #{remark})
+    </insert>
+
+    <resultMap id="orderDetailMap" type="OrderInfo">
+        <id column="id" property="id"/>
+        <result column="user_id" property="userId" />
+        <result column="status" property="status" />
+        <result column="total_amount" property="totalAmount" />
+        <result column="pay_amount" property="payAmount" />
+        <result column="receiver_name" property="receiverName" />
+        <result column="receiver_phone" property="receiverPhone" />
+        <result column="receiver_address" property="receiverAddress" />
+        <result column="remark" property="remark" />
+        <result column="created_at" property="createdAt" />
+        <result column="updated_at" property="updatedAt" />
+        <result column="cancelled_at" property="cancelledAt" />
+        <collection property="items" ofType="OrderItem">
+            <id column="item_id" property="id" />
+            <result column="sku_id" property="skuId" />
+            <result column="sku_name" property="skuName" />
+            <result column="price" property="price" />
+            <result column="quantity" property="quantity" />
+            <result column="amount" property="amount" />
+        </collection>
+    </resultMap>
+
+    <!-- 查询订单详情(一对多) -->
+    <select id="queryDetail" resultMap="orderDetailMap">
+        SELECT o.id, o.user_id, o.status, o.total_amount, o.pay_amount,
+               o.receiver_name, o.receiver_phone, o.receiver_address, o.remark,
+               o.created_at, o.updated_at, o.cancelled_at,
+               i.id AS item_id, i.sku_id, i.sku_name, i.price, i.quantity, i.amount
+        FROM `order_info` o
+        LEFT JOIN `order_item` i ON i.order_id = o.id
+        WHERE o.id = #{orderId}
+        ORDER BY i.id
+    </select>
+
+    <!-- 游标分页查询 -->
+    <select id="pageQuery" parameterType="map" resultType="map">
+        SELECT id, user_id, status, total_amount, pay_amount,
+               receiver_name, receiver_phone, receiver_address
+        FROM `order_info`
+        <where>
+            <if test="lastId != null and lastId != ''">id &lt;= #{lastId}</if>
+            <if test="userId != null and userId != ''">AND user_id = #{userId}</if>
+            <if test="status != null">AND status = #{status}</if>
+            <if test="minAmount != null">AND total_amount &gt;= #{minAmount}</if>
+            <if test="maxAmount != null">AND total_amount &lt;= #{maxAmount}</if>
+            <if test="createdFrom != null">AND created_at &gt;= #{createdFrom}</if>
+            <if test="createdTo != null">AND created_at &lt;= #{createdTo}</if>
+        </where>
+        ORDER BY id DESC
+        LIMIT #{limit}
+    </select>
+
+    <!-- 更新支付状态 -->
+    <update id="updatePaid" parameterType="OrderInfo">
+        UPDATE `order_info`
+        SET status = 1, pay_amount = #{payAmount}
+        WHERE id = #{id} AND status = 0
+    </update>
+
+    <!-- 更新发货状态 -->
+    <update id="updateDelivered" parameterType="string">
+        UPDATE `order_info`
+        SET status = 2
+        WHERE id = #{id} AND status = 1
+    </update>
+
+    <!-- 更新取消状态 -->
+    <update id="updateCancelled" parameterType="OrderInfo">
+        UPDATE `order_info`
+        <set>
+            status = 4,
+            cancelled_at = #{cancelledAt},
+            <if test="remark != null and remark != ''">remark = #{remark},</if>
+        </set>
+        WHERE id = #{id} AND status IN (0, 1)
+    </update>
+</mapper>
