@@ -52,7 +52,7 @@
                receiver_name, receiver_phone, receiver_address
         FROM `order_info`
         <where>
-            <if test="lastId != null and lastId != ''">id &lt;= #{lastId}</if>
+            <if test="cursor != null and cursor != ''">id &lt;= #{cursor}</if>
             <if test="userId != null and userId != ''">AND user_id = #{userId}</if>
             <if test="status != null">AND status = #{status}</if>
             <if test="minAmount != null">AND total_amount &gt;= #{minAmount}</if>

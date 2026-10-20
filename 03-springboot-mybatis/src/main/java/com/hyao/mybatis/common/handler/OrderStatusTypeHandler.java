@@ -7,6 +7,8 @@ import org.apache.ibatis.type.MappedTypes;
 
 /**
  * 订单状态类型处理器.
+ *
+ * @see com.hyao.mybatis.common.handler.BaseEnumTypeHandler
  */
 @MappedTypes(OrderStatus.class)
 @MappedJdbcTypes(JdbcType.INTEGER)

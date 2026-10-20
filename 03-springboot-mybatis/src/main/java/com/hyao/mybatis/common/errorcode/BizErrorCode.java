@@ -3,6 +3,9 @@ package com.hyao.mybatis.common.errorcode;
 import com.hyao.common.exception.IErrorCode;
 import lombok.Getter;
 
+/**
+ * 实现{@code IErrorCode}接口, 以接入统一异常处理.
+ */
 @Getter
 public enum BizErrorCode implements IErrorCode {
     DB_ERROR("DBE0001", "DB操作异常"),

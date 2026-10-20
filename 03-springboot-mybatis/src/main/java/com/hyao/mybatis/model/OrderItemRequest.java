@@ -14,15 +14,11 @@ import javax.validation.constraints.NotNull;
 @Data
 public class OrderItemRequest {
 
-    /**
-     * SKU编号
-     */
+    /** SKU编号 */
     @NotBlank(message = "不能为空")
     private String skuId;
 
-    /**
-     * 商品数量.
-     */
+    /** 商品数量. */
     @NotNull(message = "不能为空")
     @Min(value = 1, message = "至少为 1")
     @Max(value = 999, message = "最多为 999")

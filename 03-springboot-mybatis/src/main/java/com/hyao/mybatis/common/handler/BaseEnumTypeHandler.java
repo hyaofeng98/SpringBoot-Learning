@@ -15,7 +15,7 @@ import java.util.Map;
 
 /**
  * MyBatis 类型处理器（{@code TypeHandler}）的泛型抽象基类.：让「实现了 {@code BaseEnum} 接口的枚举」与数据库中「整型」枚举字段之间
- * 自动完成双向转换。继承该抽象类的子类只需要写一个空壳子类即可(比如{@link GenderTypeHandler}).
+ * 自动完成双向转换。继承该抽象类的子类只需要写一个空壳子类即可(比如{@link OrderStatusTypeHandler}).
  * <p>子类中需要加以下注解类:
  * <ul>
  *     <li>{@code @MappedTypes}: 指定该类型处理器处理的 Java 枚举类型.</li>

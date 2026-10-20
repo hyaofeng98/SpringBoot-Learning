@@ -134,7 +134,7 @@ public class OrderService {
         params.put("minAmount", req.getMinAmount());
         params.put("maxAmount", req.getMaxAmount());
         params.put("limit", req.getPageSize() + 1);
-        params.put("lastId", req.getLastId());
+        params.put("cursor", req.getCursor());
         List<Map<String, Object>> list = orderInfoMapper.pageQuery(params);
         if (CollectionUtils.isEmpty(list)) {
             return null;
