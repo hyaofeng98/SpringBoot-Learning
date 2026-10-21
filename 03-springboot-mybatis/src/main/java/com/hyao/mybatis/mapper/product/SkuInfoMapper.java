@@ -1,6 +1,6 @@
-package com.hyao.mybatis.mapper;
+package com.hyao.mybatis.mapper.product;
 
-import com.hyao.mybatis.entity.SkuInfo;
+import com.hyao.mybatis.entity.product.SkuInfo;
 import org.apache.ibatis.annotations.Param;
 import org.apache.ibatis.annotations.Select;
 

@@ -1,14 +1,12 @@
 package com.hyao.mybatis.controller;
 
-import com.hyao.mybatis.model.*;
+import com.hyao.mybatis.model.order.*;
 import com.hyao.mybatis.service.OrderService;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 import javax.validation.Valid;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 /**
@@ -125,5 +123,23 @@ public class OrderController {
     @PostMapping("/cancel")
     public void cancelOrder(@Valid @RequestBody OrderCancelRequest req) {
         orderService.cancelOrder(req);
+    }
+
+    /**
+     * 订单统计.
+     * <pre>
+     *     请求示例:
+     *     POST /order/statistics
+     *
+     *     Content-Type: application/json
+     *     { "beginDate": "2027-08-03", "endDate": "2026-10-31", "dimension": "status" }
+     * </pre>
+     *
+     * @param req 订单统计的请求
+     * @return 订单统计结果
+     */
+    @PostMapping("/statistics")
+    public List<OrderStatisticsItemVO> statistics(@Valid @RequestBody OrderStatisticsRequest req) {
+        return orderService.statistics(req);
     }
 }

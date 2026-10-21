@@ -1,4 +1,4 @@
-package com.hyao.mybatis.model;
+package com.hyao.mybatis.model.order;
 
 import com.fasterxml.jackson.annotation.JsonFormat;
 import com.hyao.mybatis.common.enums.OrderStatus;

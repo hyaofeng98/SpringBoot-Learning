@@ -27,7 +27,7 @@ spring:
 
 mybatis:
   # 配置 mapper xml文件位置
-  mapper-locations: classpath:mapper/*.xml
+  mapper-locations: classpath:mapper/*/*.mapper.xml
   # 配置实体类的包路径：配好之后 XML 里就能用短类名，如 resultType="Account"
   type-aliases-package: com.hyao.mybatis.entity
   # 配置类型处理器的包路径

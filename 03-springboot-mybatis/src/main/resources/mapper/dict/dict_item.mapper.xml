@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
+        "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.hyao.mybatis.mapper.dict.DictItemMapper">
+
+    <!-- 二级缓存: eviction="LRU" 600s 过期, 最多 512 个对象 -->
+    <cache eviction="LRU" flushInterval="600000" size="512" readOnly="true" />
+
+    <!-- 根据字典类型查询数据字典，开启缓存 -->
+    <select id="queryByType" resultType="DictItem" useCache="true">
+        SELECT id, dict_type, dict_code, dict_name, sort, status
+        FROM `dict_item`
+        WHERE dict_type = #{dictType}
+          AND status = 1
+        ORDER BY sort ASC
+    </select>
+
+    <!-- 更新数据字典，刷新缓存 -->
+    <update id="updateName" flushCache="true">
+        UPDATE `dict_item`
+        SET dict_name = #{dictName}
+        WHERE dict_type = #{dictType}
+          AND dict_code = #{dictCode}
+    </update>
+</mapper>

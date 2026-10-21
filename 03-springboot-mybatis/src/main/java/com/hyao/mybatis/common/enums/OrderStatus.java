@@ -29,4 +29,13 @@ public enum OrderStatus implements BaseEnum {
     public String getDesc() {
         return desc;
     }
+
+    public static OrderStatus ofCode(int code) {
+        for (OrderStatus orderStatus : OrderStatus.values()) {
+            if (orderStatus.code == code) {
+                return orderStatus;
+            }
+        }
+        return null;
+    }
 }

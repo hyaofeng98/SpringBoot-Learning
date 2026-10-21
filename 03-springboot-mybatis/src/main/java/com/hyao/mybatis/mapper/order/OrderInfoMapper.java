@@ -1,6 +1,6 @@
-package com.hyao.mybatis.mapper;
+package com.hyao.mybatis.mapper.order;
 
-import com.hyao.mybatis.entity.OrderInfo;
+import com.hyao.mybatis.entity.order.OrderInfo;
 import org.apache.ibatis.annotations.Param;
 
 import java.util.List;
@@ -57,4 +57,12 @@ public interface OrderInfoMapper {
      * @return 影响行数
      */
     int updateCancelled(OrderInfo orderInfo);
+
+    /**
+     * 统计订单信息. 演示 {@code <choose>}/{@code <when>}/{@code <otherwise>} 动态查询的使用.
+     *
+     * @param params 查询参数
+     * @return 统计结果
+     */
+    List<Map<String, Object>> statistics(Map<String, Object> params);
 }

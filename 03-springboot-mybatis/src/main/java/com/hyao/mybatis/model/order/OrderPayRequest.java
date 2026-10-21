@@ -1,4 +1,4 @@
-package com.hyao.mybatis.model;
+package com.hyao.mybatis.model.order;
 
 import lombok.Data;
 

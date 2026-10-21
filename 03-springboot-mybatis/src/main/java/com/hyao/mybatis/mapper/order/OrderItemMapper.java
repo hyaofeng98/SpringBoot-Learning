@@ -1,6 +1,6 @@
-package com.hyao.mybatis.mapper;
+package com.hyao.mybatis.mapper.order;
 
-import com.hyao.mybatis.entity.OrderItem;
+import com.hyao.mybatis.entity.order.OrderItem;
 
 import java.util.List;
 

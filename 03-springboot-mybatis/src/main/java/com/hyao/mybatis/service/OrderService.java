@@ -5,15 +5,14 @@ import com.hyao.mybatis.common.enums.OrderStatus;
 import com.hyao.mybatis.common.enums.SkuStatus;
 import com.hyao.mybatis.common.errorcode.BizErrorCode;
 import com.hyao.mybatis.common.id.SnowflakeIdGenerator;
-import com.hyao.mybatis.entity.OrderInfo;
-import com.hyao.mybatis.entity.OrderItem;
-import com.hyao.mybatis.entity.SkuInfo;
-import com.hyao.mybatis.mapper.OrderInfoMapper;
-import com.hyao.mybatis.mapper.OrderItemMapper;
-import com.hyao.mybatis.mapper.SkuInfoMapper;
-import com.hyao.mybatis.mapper.SkuStockMapper;
-import com.hyao.mybatis.model.*;
-import com.sun.org.apache.xpath.internal.operations.Or;
+import com.hyao.mybatis.entity.order.OrderInfo;
+import com.hyao.mybatis.entity.order.OrderItem;
+import com.hyao.mybatis.entity.product.SkuInfo;
+import com.hyao.mybatis.mapper.order.OrderInfoMapper;
+import com.hyao.mybatis.mapper.order.OrderItemMapper;
+import com.hyao.mybatis.mapper.product.SkuInfoMapper;
+import com.hyao.mybatis.mapper.product.SkuStockMapper;
+import com.hyao.mybatis.model.order.*;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.util.CollectionUtils;
@@ -197,6 +196,35 @@ public class OrderService {
         for (OrderItem orderItem : orderItems) {
             skuStockMapper.restore(orderItem.getSkuId(), orderItem.getQuantity());
         }
+    }
+
+    /**
+     * 订单统计.
+     *
+     * @param req 订单统计的请求
+     * @return 订单统计结果
+     */
+    public List<OrderStatisticsItemVO> statistics(OrderStatisticsRequest req) {
+        Map<String, Object> params = new HashMap<>();
+        params.put("beginDate", req.getBeginDate());
+        params.put("endDate", req.getEndDate());
+        params.put("dimension", req.getDimension());
+        params.put("status", req.getStatus());
+        List<Map<String, Object>> rows = orderInfoMapper.statistics(params);
+        List<OrderStatisticsItemVO> result = new ArrayList<>(rows.size());
+        for (Map<String, Object> row : rows) {
+            OrderStatisticsItemVO vo = new OrderStatisticsItemVO();
+            Object statKey = row.get("stat_key");
+            vo.setStatKey(statKey == null ? null : statKey.toString());
+            vo.setOrderCount((Long) row.get("order_count"));
+            vo.setTotalAmount(row.get("total_amount") == null ?
+                    BigDecimal.ZERO : new BigDecimal(row.get("total_amount").toString()));
+            if ("status".equals(req.getDimension())) {
+                vo.setStatusDesc(OrderStatus.ofCode((Integer) row.get("stat_key")).getDesc());
+            }
+            result.add(vo);
+        }
+        return result;
     }
 
     private static OrderDetailVO buildOrderDetailVO(OrderInfo orderInfo) {

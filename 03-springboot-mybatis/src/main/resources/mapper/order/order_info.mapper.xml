@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN"
         "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
-<mapper namespace="com.hyao.mybatis.mapper.OrderInfoMapper">
+<mapper namespace="com.hyao.mybatis.mapper.order.OrderInfoMapper">
 
     <!-- 插入订单 -->
     <insert id="insert" parameterType="OrderInfo">
@@ -88,4 +88,39 @@
         </set>
         WHERE id = #{id} AND status IN (0, 1)
     </update>
+
+    <!-- 按不同维度统计订单数据 -->
+    <select id="statistics" resultType="map">
+        <choose>
+            <!-- 按天统计订单数据 -->
+            <when test="dimension == 'day'">
+                SELECT DATE(o.created_at) AS stat_key,
+                       COUNT(*) AS order_count,
+                       SUM(o.total_amount) AS total_amount
+                 FROM `order_info` o
+                WHERE o.created_at &gt;= #{beginDate}
+                  <!-- INTERVAL 1 DAY 保证时间是结束日期的23:59:59，否则就是00:00:00 -->
+                  AND o.created_at &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+                <if test="status != null">
+                  AND o.status = #{status}
+                </if>
+                GROUP BY DATE(o.created_at)
+                ORDER BY stat_key ASC
+            </when>
+            <!-- 按状态统计订单数据 -->
+            <otherwise>
+                SELECT o.status AS stat_key,
+                       COUNT(*) AS order_count,
+                       SUM(o.total_amount) AS total_amount
+                 FROM `order_info` o
+                WHERE o.created_at &gt;= #{beginDate}
+                  AND o.created_at &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+                <if test="status != null">
+                  AND o.status = #{status}
+                </if>
+                GROUP BY o.status
+                ORDER BY stat_key ASC
+            </otherwise>
+        </choose>
+    </select>
 </mapper>

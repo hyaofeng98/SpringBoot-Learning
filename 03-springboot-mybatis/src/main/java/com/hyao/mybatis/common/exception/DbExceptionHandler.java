@@ -14,6 +14,7 @@ import org.springframework.web.bind.annotation.RestControllerAdvice;
  * <p>响应里只给固定的「DB操作异常」，SQL 语句、表名、连接串等细节只进日志。
  */
 @Slf4j
+@Order(1)
 @RestControllerAdvice
 public class DbExceptionHandler {
 
@@ -23,7 +24,6 @@ public class DbExceptionHandler {
      * @param e 异常
      * @return 错误码 DBE0001 的 {@link Result}。
      */
-    @Order(1)
     @ExceptionHandler(DataAccessException.class)
     public Result<Void> handleDataAccessException(DataAccessException e) {
         log.error("数据库操作异常", e);

@@ -31,15 +31,9 @@
 | ✅ | ★★★ | **订单列表条件分页** | `<where>` + `<if>` 动态条件、`LIMIT` 参数化、游标分页（多查一条）、`resultType="map"`（列名保持下划线） | DTO + `@Valid`、SQL 日志（统一格式 + traceId） |
 | ✅ | ★★☆ | **订单状态流转 / 取消** | `<set>` + `<if>` 选择性更新、`WHERE status = 前置状态` 保证幂等、影响行数判断 | 事务、取消后回补库存 |
 | ✅ | ★★☆ | **库存扣减**（防超卖） | 条件更新 `UPDATE ... WHERE stock >= n`（影响行数 0 = 库存不足） | 事务、`@Transactional` 回滚 |
-| ⬜ | ★★☆ | **批量发货 / 批量导入** | `<foreach>` 批量 update、`ExecutorType.BATCH`、大事务拆分 | 事务边界、连接池占用 |
-| ⬜ | ★★☆ | **报表统计**（按天 / 状态聚合） | `<choose>`、`GROUP BY` + `resultType="map"` | 慢 SQL 监控（Druid `stat`） |
-| ⬜ | ★★☆ | **数据字典缓存** | 二级缓存 `<cache/>`、一级缓存边界（SqlSession 级） | `cache-enabled` / `local-cache-scope` |
-| ⬜ | ★☆☆ | **幂等 / 防重**（订单号唯一索引） | 捕获 `DuplicateKeyException` → 业务错误码 | 异常翻译（`DataAccessException` 体系） |
-| ⬜ | ★★☆ | **多数据源**（订单库 / 商品库） | 多个 `SqlSessionFactory`、`@MapperScan(sqlSessionTemplateRef)` | 自动配置覆盖（`@ConditionalOnMissingBean`） |
-| ⬜ | ★★☆ | **换池实验 + Druid 监控** | 无 MyBatis 改动 | Druid vs Hikari、`stat` 过滤器 + `/druid/` 监控页 |
-| ⬜ | ★☆☆ | **集成测试** | `@MybatisTest` / H2 / `@Transactional` 回滚 | 事务、异常翻译的集成验证 |
-
-> 各场景的实现级设计（接口契约 / DTO / SQL / 事务边界 / 验收用例）见 [订单库存场景详设](../docs/订单库存场景详设.md)。
+| ✅ | ★★☆ | **报表统计**（按天 / 状态聚合） | `<choose>/<when>/<otherwise>` 走互斥 SQL、`GROUP BY DATE()`、`<if>` 过滤、聚合结果 `resultType="map"` | `@AssertTrue` 交叉校验、`@JsonFormat` 日期入参、`resultType="map"` 的列别名 |
+| ✅ | ★★☆ | **数据字典 + 二级缓存** | `<cache/>` 二级缓存、`useCache` / `flushCache`、`readOnly`、命中率日志 | `cache-enabled` / `local-cache-scope`、缓存失效边界（同 namespace 才清） |
+| 🚧 | ★★☆ | **多数据源**（订单库 / 商品库） | 多个 `SqlSessionFactory`、`@MapperScan(sqlSessionTemplateRef)` | 待完成：`entity`/`mapper`/`model` 已按 `order`/`product`/`dict` 分包，XML 也已分目录 |
 
 ### 2.2 集成原理
 
@@ -49,6 +43,7 @@
 4. **Mapper 扫描与代理**：`@MapperScan` 注册 `MapperScannerConfigurer`，为每个接口生成 `MapperFactoryBean`，`getObject()` 返回 JDK 动态代理；它与自动 `@Mapper` 扫描器二选一（见 §4.1）。
 5. **运行时串联**：一次调用走 MapperProxy → `SqlSessionTemplate` → `SqlSessionUtils` → `SpringManagedTransaction` → `DataSourceUtils` → `DruidDataSource`；事务、异常翻译、SQL 日志都挂在这条链上（见 §4.3.2、§4.2.9、§3.2.6）。
 6. **横切配套**：参数校验（00 的 Bean Validation，失败 `400 + SYS0004`）、统一响应 / 异常、traceId（见 §4.2.10）。
+7. **缓存层级**：一级缓存挂在 `SqlSession`（Spring 下即一次事务/一次 Mapper 调用），二级缓存挂在 `SqlSessionFactory` + namespace 的 `<cache/>` 上，两者开关和失效规则不同（见 §4.2.12）。
 
 > 串起来看就是一句话：**配置决定 Bean，Bean 的注册顺序决定容器里只有一个 Druid 数据源；MyBatis 只依赖 `javax.sql.DataSource` 接口，所以「换成哪个池子」对 Mapper 代码完全透明。**
 
@@ -158,7 +153,7 @@ spring数据源配置以`spring.datasource`作为前缀，配置项参考`org.sp
 
 | 配置                              | 说明                                                                 |
 | --------------------------------- | -------------------------------------------------------------------- |
-| `mapper-locations`                | XML mapper 位置（`classpath*:mapper/**/*.xml`），**不配 XML 不会被加载** |
+| `mapper-locations`                | XML mapper 位置，本模块为 `classpath:mapper/*/*.mapper.xml`（按 `order`/`product`/`dict` 分目录），**不配 XML 不会被加载** |
 | `type-aliases-package`            | 扫描该包并注册短类名别名（`resultType="OrderInfo"`）                  |
 | `type-handlers-package`           | 扫描该包并注册自定义 TypeHandler（本模块为 `com.hyao.mybatis.common.handler`） |
 | `config-location`                 | 原生 `mybatis-config.xml` 的位置                                     |
@@ -231,6 +226,14 @@ app:
 
 脚本自带初始化数据：4 个 SKU（含 1 个下架）、对应库存（100/200/50/0）、2 条示例订单（1 条已支付 2 条明细、1 条待支付 1 条明细）。设计约定：不建外键、金额统一 `decimal(12,2)`、取消用 `status + cancelled_at`。
 
+**[`script/2.sql`](src/main/resources/script/2.sql)** —— 数据字典域：
+
+| 表 | 关键设计 |
+| --- | --- |
+| `dict_item` | 自增主键 `id`；唯一键 `uk_type_code(dict_type, dict_code)` 保证同类型下编码不重复；索引 `idx_type_sort(dict_type, sort)` 支撑「按类型查 + 排序」；`status` 1 启用 / 0 停用，查询只取启用的 |
+
+自带两组字典数据：`order_status`（0~4）、`sku_status`（0 下架 / 1 上架），用 `INSERT IGNORE` 写，可重复执行。
+
 > 执行前确认库名与 `spring.datasource.url` 里的一致。
 
 ## 4. 核心实现
@@ -253,7 +256,7 @@ public class MybatisApplication { ... }
 
 ```yaml
 mybatis:
-  mapper-locations: classpath:mapper/*.xml                    # XML mapper 才会被加载
+  mapper-locations: classpath:mapper/*/*.mapper.xml           # XML mapper 才会被加载（按 order/product/dict 分目录）
   type-aliases-package: com.hyao.mybatis.entity               # resultType 可用短类名
   type-handlers-package: com.hyao.mybatis.common.handler      # 枚举 TypeHandler 才会被注册
   configuration:
@@ -542,6 +545,88 @@ public Map<String, Object> createOrder(@Valid @RequestBody OrderCreateRequest re
 - **嵌套集合的校验需要 `@Valid` 级联**：`items` 上只有 `@NotEmpty`，没有 `@Valid`，所以明细里的 `quantity=0`、`skuId` 为空**不会**被拦截（见 §4.4）；
 - `@JsonFormat(pattern = "yyyy-MM-dd HH:mm:ss")` 控制时间入参/出参格式（`OrderCancelRequest.cancelledAt`、`OrderDetailVO` 的时间字段）。
 
+#### 4.2.11 XML：`<choose>` 走互斥 SQL（`OrderInfoMapper.statistics`）
+
+报表要「按天」和「按状态」两种完全不同的 `SELECT`（查询列、`GROUP BY` 都不同），这不是「加不加条件」的区别，所以用 `<choose>/<when>/<otherwise>`（if / else if / else），`<if>` 只负责在选中分支里再加过滤：
+
+```xml
+<select id="statistics" resultType="map">
+    <choose>
+        <!-- 按天统计：DATE() 把时间截到天，再按天分组 -->
+        <when test="dimension == 'day'">
+            SELECT DATE(o.created_at) AS stat_key,
+                   COUNT(*)           AS order_count,
+                   SUM(o.total_amount) AS total_amount
+            FROM `order_info` o
+            WHERE o.created_at &gt;= #{beginDate}
+              <!-- 半开区间：保证包含结束日 23:59:59，否则只算到当天 00:00 -->
+              AND o.created_at &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            <if test="status != null">
+                AND o.status = #{status}
+            </if>
+            GROUP BY DATE(o.created_at)
+            ORDER BY stat_key ASC
+        </when>
+        <!-- 其他值都按状态统计（兜底分支） -->
+        <otherwise>
+            SELECT o.status AS stat_key,
+                   COUNT(*) AS order_count,
+                   SUM(o.total_amount) AS total_amount
+            FROM `order_info` o
+            WHERE o.created_at &gt;= #{beginDate}
+              AND o.created_at &lt; DATE_ADD(#{endDate}, INTERVAL 1 DAY)
+            <if test="status != null">
+                AND o.status = #{status}
+            </if>
+            GROUP BY o.status
+            ORDER BY stat_key ASC
+        </otherwise>
+    </choose>
+</select>
+```
+
+- **`<choose>` 只命中第一个为真的 `<when>`，都不满足走 `<otherwise>`**——所以 `dimension` 必须在 DTO 上用 `@Pattern(regexp = "day|status")` 卡死，否则传 `week` 会**静默**走「按状态」分支（实测 `200`，不会报错）；
+- **`resultType="map"` 的 key 是列别名**：`stat_key` / `order_count` / `total_amount`，不是实体属性名；`Service` 按别名取出来再转 [`OrderStatisticsItemVO`](src/main/java/com/hyao/mybatis/model/order/OrderStatisticsItemVO.java)；
+- **时间上界用半开区间** `>= beginDate AND < DATE_ADD(endDate, INTERVAL 1 DAY)`：`LocalDate` 绑参是当天 `00:00:00`，写成 `<= #{endDate}` 会把结束日的数据漏掉；
+- `DATE()` / `DATE_ADD()` 是 **MySQL 方言**，换 H2 做集成测试要改写（见设计稿 §6.7）；
+- `statusDesc` 只在 `dimension=status` 时由 `OrderStatus.ofCode(...)` 补上，`day` 维度是 `null`；
+- 日期区间、90 天上限用两个 `@AssertTrue` 方法做**跨字段校验**，方法名会出现在错误信息里（实测 `参数校验失败: dateRangeValid开始日期不能晚于结束日期`）。
+
+#### 4.2.12 二级缓存：`<cache/>`（`DictItemMapper`）
+
+字典是「读多写少、允许短暂不一致」的数据，适合缓存。MyBatis 分两级：
+
+| 级别 | 作用范围 | 开关 | 失效时机 |
+| --- | --- | --- | --- |
+| 一级缓存 | 同一个 `SqlSession`（Spring 下 = 同一次 `@Transactional` 或同一次 Mapper 调用） | 默认开 | 同一 session 内执行 update/insert/delete 即清空；`local-cache-scope: STATEMENT` 可关 |
+| 二级缓存 | 同一个 `SqlSessionFactory`（整个应用），跨 session/跨请求共享 | 全局 `cache-enabled: true`（默认）+ 该 namespace 写 `<cache/>` | **同 namespace** 的 update/insert/delete 默认 `flushCache=true` 清空；跨 namespace 不会失效 |
+
+```xml
+<mapper namespace="com.hyao.mybatis.mapper.dict.DictItemMapper">
+
+    <!-- LRU 淘汰；600s 强制过期；最多 512 个缓存条目；readOnly 直接返回缓存里的对象引用 -->
+    <cache eviction="LRU" flushInterval="600000" size="512" readOnly="true" />
+
+    <select id="queryByType" resultType="DictItem" useCache="true">
+        SELECT id, dict_type, dict_code, dict_name, sort, status
+        FROM `dict_item`
+        WHERE dict_type = #{dictType}
+          AND status = 1
+        ORDER BY sort ASC
+    </select>
+
+    <update id="updateName" flushCache="true">
+        UPDATE `dict_item` SET dict_name = #{dictName}
+        WHERE dict_type = #{dictType} AND dict_code = #{dictCode}
+    </update>
+</mapper>
+```
+
+- **缓存 key** = `statementId + 参数`（+ `RowBounds`/分页参数），所以不同 `dictType` 是不同的条目；
+- **`readOnly="true"`**：不反序列化拷贝，直接返回缓存里的**同一批对象**——最快，但调用方改了字段会污染缓存；本模块只读并立即转 VO，所以安全；
+- **`flushCache` 默认值**：`select` 是 `useCache=true` / `flushCache=false`，`update`/`insert`/`delete` 是 `flushCache=true`；
+- **验证方法（实测）**：连续两次 `POST /dict/list {"dictType":"order_status"}`，第一次日志有 `Preparing: SELECT ...`，第二次**没有 SQL**、多一行 `Cache Hit Ratio [com.hyao.mybatis.mapper.dict.DictItemMapper]: 0.5`；执行 `POST /dict/updateName` 再查，缓存被清、重新打 SQL 且拿到新值（见 §5）。
+
 ### 4.3 依赖之间怎么组合关联的
 
 #### 4.3.1 Druid 怎么成为 Spring Boot 的数据源
@@ -596,7 +681,6 @@ orderInfoMapper.queryDetail("ORD20261019000001")  // MapperProxy（JDK 动态代
 
 - **两种"连接"不是一回事**：`DataSourceUtils.getConnection()` 返回的是 `DruidPooledConnection`（池化的逻辑连接），它的 `close()` 是 `recycle()` 回池，不是关物理连接；
 - **有没有 `@Transactional` 行为不同**：没有事务时"借 → 用 → 还"（下一条 SQL 再借）；有事务时连接绑在线程上，**同一事务共用一条连接**，直到提交/回滚才释放——`OrderService.createOrder` 的 `@Transactional` 就让「扣库存 → 插订单 → 批插明细」这几条 SQL 共用一条连接，任何一步抛异常整体回滚；
-- **换连接池为什么只改配置**：MyBatis 只依赖 `javax.sql.DataSource` 接口，`SpringManagedTransaction` 拿到的就是容器里的 DataSource Bean。
 
 **想自己验证**：在 `SpringManagedTransaction.getConnection()`、`DataSourceUtils.getConnection()`、`DruidDataSource.getConnectionInternal()` 上打断点看调用栈；或用 `DruidDataSource.getActiveCount()`（开 Druid 监控页）对比有无事务；MySQL 侧 `SHOW PROCESSLIST` 看物理连接数应在 `initial-size`/`min-idle` 量级。
 
@@ -618,13 +702,20 @@ orderInfoMapper.queryDetail("ORD20261019000001")  // MapperProxy（JDK 动态代
 - `config-location` 与 `configuration.*` 同时配置会启动报错，二选一；
 - Druid：`max-wait` 打满后抛 `GetConnectionTimeoutException`；`test-while-idle` 要配 `validation-query` 才有意义；`initial-size` 在库连不上时启动即失败；
 - 枚举未知 `code` 会抛 `BizException(BIZ_ENUM_ERROR)`（`BIZ0001`），让脏数据早暴露。
+- **二级缓存是「本地缓存」**：多实例部署时每个实例各存一份，A 实例更新字典后 B 实例不会失效；要跨实例一致就得换成 Redis 等集中式 `Cache` 实现；
+- **只有同一 namespace 的写才会清缓存**：`DictItemMapper.updateName` 能清掉 `DictItemMapper` 的缓存；如果你在别的 mapper 里 `UPDATE dict_item`，或者直接用 SQL 客户端改库，缓存**不会**失效（只能等 `flushInterval` 过期或重启）；
+- **`readOnly="true"` 返回共享实例**：别在 Service 里改缓存返回对象的字段，否则下次命中缓存就是脏数据；
+- **`updateName` 不校验影响行数**：`dictCode` 不存在时影响 0 行，接口照样 `200`（实测 `Updates: 0`）；要报错得在 Service 里判断返回值；
+- **`OrderStatus.ofCode` 可能返回 `null`**：库里 `status` 超出 0~4 时，`statistics` 里直接 `.getDesc()` 会 NPE → `500 + SYS0001`；
+- **统计的 `<choose>` 不校验 `dimension`**：非法值会静默走 `<otherwise>`，DTO 上的 `@Pattern` 才是防线；
+- **聚合/统计的列别名是契约**：`resultType="map"` 靠 `stat_key`、`order_count`、`total_amount` 取值，改 SQL 时别名要同步改 Service。
 
 ## 5. 快速验证
 
 前置条件：
 
 1. 启动本地 MySQL，创建库 `hyao`；
-2. 执行 [`script/1.sql`](src/main/resources/script/1.sql)（建四张表 + 初始化 4 个 SKU、库存、2 条示例订单）；
+2. 执行 [`script/1.sql`](src/main/resources/script/1.sql)（建四张表 + 初始化 4 个 SKU、库存、2 条示例订单）和 [`script/2.sql`](src/main/resources/script/2.sql)（建 `dict_item` + 两组字典数据）；
 3. 按需修改 `application.yaml` 的账号密码（`useSSL=true&requireSSL=true` 要求 MySQL 开了 SSL，本地没开会连不上，去掉 `requireSSL` 即可）；
 4. IDEA 里运行 [`MybatisApplication`](src/main/java/com/hyao/mybatis/MybatisApplication.java) 的 `main`（端口 8083，同一端口同时只能跑一个实例）。
 
@@ -650,9 +741,25 @@ curl -X POST http://localhost:8083/order/deliver \
   -H 'Content-Type: application/json' -d '{"orderId":"<orderId>"}'
 curl -X POST http://localhost:8083/order/cancel \
   -H 'Content-Type: application/json' -d '{"orderId":"<orderId>","cancelledAt":"2026-10-20 22:30:00","remark":"不想要了"}'
+
+# 报表统计（dimension=status / day；日期区间 ≤ 90 天）
+curl -X POST http://localhost:8083/order/statistics \
+  -H 'Content-Type: application/json' -d '{"beginDate":"2026-10-19","endDate":"2026-10-21","dimension":"status"}'
+curl -X POST http://localhost:8083/order/statistics \
+  -H 'Content-Type: application/json' -d '{"beginDate":"2026-10-19","endDate":"2026-10-21","dimension":"day"}'
+
+# 数据字典（连发两次：第二次命中二级缓存，日志里没有 SQL）
+curl -X POST http://localhost:8083/dict/list \
+  -H 'Content-Type: application/json' -d '{"dictType":"order_status"}'
+curl -X POST http://localhost:8083/dict/list \
+  -H 'Content-Type: application/json' -d '{"dictType":"order_status"}'
+
+# 改字典名（flushCache 清掉本 namespace 缓存，再查就是新值）
+curl -X POST http://localhost:8083/dict/updateName \
+  -H 'Content-Type: application/json' -d '{"dictType":"order_status","dictCode":"1","dictName":"已支付"}'
 ```
 
-实测（本地 MySQL，2026-10-20 运行结果；创建/支付/取消后的测试订单已清理，库存也回补到原值）：
+实测（本地 MySQL，2026-10-20 与 2026-10-21 两次运行结果；创建/支付/取消后的测试订单已清理，库存也回补到原值，字典名已还原）：
 
 | 请求 | 结果 |
 | --- | --- |
@@ -667,8 +774,19 @@ curl -X POST http://localhost:8083/order/cancel \
 | `POST /order/cancel`（已支付） | `200` + `data:null`；库存回补（`sku_stock.stock` 回到下单前的值） |
 | 重复 `POST /order/cancel` | `200` + `{"code":"ORD0006","message":"订单取消失败, 不存在待支付或已支付订单: <orderId>","data":null}` |
 | 已取消订单再 `POST /order/pay` | `200` + `{"code":"ORD0005","message":"订单状态更新失败, 不存在待支付订单: <orderId>","data":null}` |
+| `POST /order/statistics` `{"beginDate":"2026-10-19","endDate":"2026-10-21","dimension":"status"}` | `200` + `data` 3 项：`{"statKey":"0","statusDesc":"待支付","orderCount":2,"totalAmount":1956.00}`、`{"statKey":"2","statusDesc":"已发货","orderCount":1,"totalAmount":528.00}`、`{"statKey":"4","statusDesc":"已取消","orderCount":1,"totalAmount":657.00}` |
+| 同上，`"dimension":"day"` | `200` + `data` 2 项：`{"statKey":"2026-10-19","statusDesc":null,"orderCount":2,"totalAmount":1827.00}`、`{"statKey":"2026-10-20","statusDesc":null,"orderCount":2,"totalAmount":1314.00}` |
+| 同上，`"dimension":"status","status":0` | `200` + 只剩 `statKey:"0"` 那项（`<if>` 过滤生效） |
+| `POST /order/statistics` `"dimension":"week"` | `400` + `{"code":"SYS0004","message":"参数校验失败: dimension只能是 day 或 status","data":null}` |
+| `POST /order/statistics` `beginDate > endDate` | `400` + `{"code":"SYS0004","message":"参数校验失败: dateRangeValid开始日期不能晚于结束日期","data":null}` |
+| `POST /order/statistics` 跨度 293 天 | `400` + `{"code":"SYS0004","message":"参数校验失败: rangeWithinLimit查询跨度不能超过 90 天","data":null}` |
+| `POST /dict/list` `{"dictType":"order_status"}` | `200` + 5 条字典项（`dictCode` 0~4） |
+| 紧接着再发一次同样的请求 | `200` + 同样 5 条；**日志里没有 SQL**，只有 `Cache Hit Ratio [com.hyao.mybatis.mapper.dict.DictItemMapper]: 0.5`（二级缓存命中） |
+| `POST /dict/updateName`（改 `1` 的显示名）后再查 | `200`；再查时日志重新出现 `Preparing: SELECT ...`，`dictName` 是新值（`flushCache` 把缓存清掉了） |
+| `POST /dict/updateName` 传不存在的 `dictCode` | `200` + `data:null`；日志 `<== Updates: 0`（接口没校验影响行数） |
+| `POST /dict/list` `{"dictType":""}` | `400` + `{"code":"SYS0004","message":"参数校验失败: dictType字典类型不能为空","data":null}` |
 
-> 从响应能看出几个知识点：① 详情里 `orderStatus` 是**数字**（枚举上的 `@JsonValue` 生效）；② 列表 `rows` 是**原始 map**，列名下划线、`status` 数字；③ 业务失败（库存不足、下架、状态不对）都是 `200 + 业务码`，参数校验失败才是 `400 + SYS0004`。
+> 从响应能看出几个知识点：① 详情里 `orderStatus` 是**数字**（枚举上的 `@JsonValue` 生效）；② 列表 `rows` 是**原始 map**，列名下划线、`status` 数字；③ 业务失败（库存不足、下架、状态不对）都是 `200 + 业务码`，参数校验失败才是 `400 + SYS0004`；④ 报表的 `statKey` 在 `status` 维度是数字字符串、在 `day` 维度是日期字符串——两套 SQL 的列别名保持同名才能共用同一个 VO；⑤ 判断二级缓存是否生效要看**日志**（第二次请求没有 `Preparing`、`Cache Hit Ratio` 上升），响应内容两次是一样的。
 
 ## 6. 常见问题与踩坑
 
@@ -686,11 +804,20 @@ curl -X POST http://localhost:8083/order/cancel \
 | `Invalid bound statement (not found)` | `namespace` / statement `id` 与接口对不上，或 `mapper-locations` 没匹配到 XML |
 | 枚举查出来报 `BIZ0001` | 库里值不在枚举范围（`OrderStatus` 0~4 / `SkuStatus` 0~1）；补枚举值或清洗数据 |
 | 持久层异常返回 `SYS0001` 而不是 `DBE0001` | `DbExceptionHandler` 的 `@Order(1)` 标在方法上不生效；把 `@Order` 移到**类上** |
+| 打开 `/druid` 报 `{"code":"SYS0003","message":"接口不存在: /druid"}` | YAML 缩进写错，`stat-view-servlet` 被嵌进 `filter` 下面（成了 `druid.filter.stat-view-servlet`），监控 Servlet 没注册。`stat-view-servlet`、`web-stat-filter`、`aop-patterns` 必须是 `spring.datasource.druid` 的直接子节点，与 `filter` **同级** |
 | 集群部署后偶尔 `Duplicate entry` / 订单号重复 | 两个实例的 `workerId + datacenterId` 相同；给每个实例注入不同 `WORKER_ID` |
 | 前端拿到的明细 id 精度丢失 | `order_item.id` 是 `Long`，JSON 数字超过 2^53 会丢精度；把 Long 序列化成字符串 |
 | 启动报 `Communications link failure` / `Connection refused` | MySQL 没启动；或 url 的 `useSSL=true&requireSSL=true` 与服务器不一致 |
 | SQL 日志没有 traceId / 没进文件 | 用了 `log-impl: StdOutImpl`；改用 `logging.level.<mapper包>: debug` |
 | `Parameter 'xxx' not found` | 参数名与 `#{}` 对不上：单参数 POJO/Map 可直接用属性名，多参数必须 `@Param` |
+| 字典连查两次，第二次日志里没有 SQL、命中率上升 | 正常现象：二级缓存命中（`Cache Hit Ratio [com.hyao.mybatis.mapper.dict.DictItemMapper]: 0.5`），只有第一次查询打 SQL |
+| 用 SQL 客户端改了 `dict_item`，接口还返回旧值 | 二级缓存不会被外部更新清掉（只有**同 namespace** 的 update 才 `flushCache`）；等 `flushInterval`（10 分钟）过期或重启应用 |
+| 多实例部署时各实例字典数据短暂不一致 | 二级缓存是本地缓存，每个实例一份；要跨实例一致就得换 Redis 版的 `Cache` 实现 |
+| `POST /dict/updateName` 返回 `200` 但数据没变 | `dictCode` 不存在，影响 0 行；`DictService` 没校验影响行数（实测日志 `Updates: 0`） |
+| `statistics` 传 `dimension:"week"` 却返回按状态的统计 | `<choose>` 只认 `day`，其它值都走 `<otherwise>` 静默兜底；拦下来的是 DTO 上的 `@Pattern(regexp="day|status")`（实测 `SYS0004`） |
+| 按天统计少了最后一天的数据 | 上界写成 `<= #{endDate}` 时，`LocalDate` 绑参是当天 `00:00:00`；要用 `< DATE_ADD(#{endDate}, INTERVAL 1 DAY)` |
+| `statistics` 报 `500` / `SYS0001` | 库里 `status` 超出 0~4，`OrderStatus.ofCode` 返回 `null`，随后 `.getDesc()` NPE |
+| 按天统计的 `statusDesc` 是 `null` | `day` 分支不补状态描述，只有 `dimension=status` 才会查枚举填进去 |
 
 ## 7. 学习笔记
 
@@ -702,4 +829,7 @@ curl -X POST http://localhost:8083/order/cancel \
 - **keyset 游标分页**：`WHERE id <= 游标 ORDER BY id DESC LIMIT n+1`，多查一条判断 `hasNextPage`，把多出来的那条作为 `nextCursor`；深翻页成本恒定，但只能顺序翻、并且排序键必须唯一且可比较。
 - **`resultType="map"` 的边界**：列名不驼峰、枚举不转换——列表页要「原样返回」时很方便，需要类型安全就返回实体/VO。
 - **事务与连接的关系**：`@Transactional` 下「扣库存 + 插订单 + 批插明细」共用一条连接，任何一步异常整体回滚；这也是一级缓存只在同一 SqlSession/事务内有效的原因。
-- **待补充**：批量发货、报表、字典缓存、多数据源、换池实验、Druid 监控页、集成测试。
+- **`<if>` 还是 `<choose>`**：同一套 SQL 加减条件用 `<if>`；两套互斥的 SQL（查询列、`GROUP BY` 都不同）用 `<choose>/<when>/<otherwise>`，而且分支参数必须自己校验，`<otherwise>` 会静默兜底。
+- **聚合查询的 `map` 契约**：`resultType="map"` 的 key 是**列别名**，别名一变 Service 就取不到值；`COUNT` 返回 `Long`、`SUM` 在无数据时是 `null`，都要自己兜底。
+- **二级缓存的三个边界**：本地（不跨实例）、namespace 隔离（别的 mapper 写库不会清它）、`readOnly` 共享实例（别改返回的对象）。一级缓存挂在 `SqlSession` 上，所以「同一事务里查两次」才有意义，跨请求靠的是二级缓存。
+- **待补充**：多数据源（`order`/`product`/`dict` 分包已完成，等接第二个库）。

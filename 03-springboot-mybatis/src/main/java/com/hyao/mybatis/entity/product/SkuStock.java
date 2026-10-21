@@ -1,4 +1,4 @@
-package com.hyao.mybatis.entity;
+package com.hyao.mybatis.entity.product;
 
 import lombok.Data;
 
