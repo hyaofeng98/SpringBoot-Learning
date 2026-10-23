@@ -13,6 +13,7 @@
         <module>01-springboot-base</module>
         <module>02-springboot-advice</module>
         <module>03-springboot-mybatis</module>
+        <module>05-springboot-validation</module>
     </modules>
 
     <properties>

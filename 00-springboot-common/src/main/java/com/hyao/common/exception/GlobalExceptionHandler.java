@@ -10,6 +10,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.FieldError;
+import org.springframework.validation.ObjectError;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -97,7 +98,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleMethodArgumentNotValid(MethodArgumentNotValidException ex, HttpHeaders headers,
                                                                   HttpStatus status, WebRequest request) {
-        String message = formatFieldErrors(ex.getBindingResult().getFieldErrors());
+        String message = formatFieldErrors(ex.getBindingResult().getAllErrors());
         log.warn("[{}] {}", SysErrorCode.PARAM_INVALID.getCode(), message);
         return new ResponseEntity<>(Result.fail(SysErrorCode.PARAM_INVALID.getCode(), message),
                 headers, HttpStatus.BAD_REQUEST);
@@ -109,7 +110,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @Override
     protected ResponseEntity<Object> handleBindException(BindException ex, HttpHeaders headers,
                                                          HttpStatus status, WebRequest request) {
-        String message = formatFieldErrors(ex.getBindingResult().getFieldErrors());
+        String message = formatFieldErrors(ex.getBindingResult().getAllErrors());
         log.warn("[{}] {}", SysErrorCode.PARAM_INVALID.getCode(), message);
         return new ResponseEntity<>(Result.fail(SysErrorCode.PARAM_INVALID.getCode(), message),
                 headers, HttpStatus.BAD_REQUEST);
@@ -192,9 +193,12 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     /**
      * 把字段错误拼成「字段名: 提示」，多个字段用分号隔开。
      */
-    private static String formatFieldErrors(List<FieldError> fieldErrors) {
+    private static String formatFieldErrors(List<? extends ObjectError> fieldErrors) {
         String detail = fieldErrors.stream()
-                .map(e -> e.getField() + Objects.toString(e.getDefaultMessage(), "不合法"))
+                .map(e -> {
+                    String path = e instanceof FieldError ? ((FieldError) e).getField() : e.getObjectName();
+                    return path + ": " + e.getDefaultMessage();
+                })
                 .distinct()
                 .collect(Collectors.joining("; "));
         return detail.isEmpty()
