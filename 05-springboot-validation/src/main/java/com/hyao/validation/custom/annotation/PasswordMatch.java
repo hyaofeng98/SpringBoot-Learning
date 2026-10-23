@@ -11,6 +11,11 @@ import java.lang.annotation.Target;
 
 /**
  * 两次输入密码是否一致校验注解. 跨字段的类级别注解示例.
+ * <ul>
+ *     <li>{@code @Constraint} 注解用来指定校验器实现类.</li>
+ * </ul>
+ *
+ * @see PasswordMatchValidator
  */
 @Target({ElementType.TYPE})
 @Retention(RetentionPolicy.RUNTIME)

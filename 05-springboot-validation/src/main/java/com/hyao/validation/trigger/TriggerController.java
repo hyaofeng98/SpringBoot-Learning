@@ -1,6 +1,7 @@
 package com.hyao.validation.trigger;
 
 import com.hyao.common.model.Result;
+import com.hyao.validation.trigger.dto.TriggerDTO;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 

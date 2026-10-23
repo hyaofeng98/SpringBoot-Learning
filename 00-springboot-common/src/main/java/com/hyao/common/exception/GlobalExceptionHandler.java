@@ -23,7 +23,6 @@ import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExcep
 
 import javax.validation.ConstraintViolationException;
 import java.util.List;
-import java.util.Objects;
 import java.util.Set;
 import java.util.stream.Collectors;
 
@@ -148,6 +147,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         String message = ex.getConstraintViolations().stream()
                 .map(v -> v.getPropertyPath() + ": " + v.getMessage())
                 .distinct().collect(Collectors.joining("; "));
+        message = SysErrorCode.PARAM_INVALID.getMessage() + ": " + message;
         log.warn("[{}] {}", SysErrorCode.PARAM_INVALID.getCode(), message);
         return ResponseEntity.badRequest().body(Result.fail(SysErrorCode.PARAM_INVALID.getCode(), message));
     }

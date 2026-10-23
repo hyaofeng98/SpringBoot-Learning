@@ -1,6 +1,9 @@
 package com.hyao.validation.group;
 
 import com.hyao.common.model.Result;
+import com.hyao.validation.group.dto.GroupDTO;
+import com.hyao.validation.group.groups.CreateGroup;
+import com.hyao.validation.group.groups.UpdateGroup;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -9,6 +12,9 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 分组校验示例.
+ * <p>用于解决同一个对象在不同场景下校验规则不同的问题, JSR-303（javax.validation）通过 groups 机制解决这个问题.
+ *
+ * @see GroupDTO
  */
 @RestController
 @RequestMapping("/valid/group")
@@ -21,7 +27,7 @@ public class GroupController {
      *     POST /group/create
      *
      *     Content-Type: application/json
-     *     { id: 123, "name": "hyao", "remark": "" }
+     *     { "id": 123, "name": "hyao", "remark": "" }
      * </pre>
      */
     @PostMapping("/create")

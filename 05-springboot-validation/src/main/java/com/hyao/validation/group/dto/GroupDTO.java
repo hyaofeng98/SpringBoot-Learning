@@ -1,11 +1,25 @@
-package com.hyao.validation.group;
+package com.hyao.validation.group.dto;
 
+import com.hyao.validation.group.groups.CreateGroup;
+import com.hyao.validation.group.groups.UpdateGroup;
 import lombok.Data;
 
 import javax.validation.constraints.NotBlank;
 import javax.validation.constraints.NotNull;
 import javax.validation.constraints.Null;
 
+/**
+ * 校验逻辑:
+ * <ul>
+ *     <li>走 {@code CreateGroup} 时, id 必须为空, 名称不能为空</li>
+ *     <li>走 {@code UpdateGroup} 时, id 和名称必须都不为空</li>
+ *     <li>走默认分组时, 备注不能为空</li>
+ * </ul>
+ * 实现方式: 通过注解中的 groups 属性指定分组, 不指定时就是默认分组.
+ *
+ * @see CreateGroup
+ * @see UpdateGroup
+ */
 @Data
 public class GroupDTO {
 

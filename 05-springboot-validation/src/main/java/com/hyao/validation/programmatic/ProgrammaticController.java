@@ -2,11 +2,17 @@ package com.hyao.validation.programmatic;
 
 import com.hyao.common.model.Result;
 import com.hyao.validation.custom.dto.CustomDTO;
+import com.hyao.validation.programmatic.service.ProgrammaticService;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
+/**
+ * 编程式校验演示.
+ *
+ * @see ProgrammaticService
+ */
 @RestController
 @RequestMapping("/valid")
 public class ProgrammaticController {

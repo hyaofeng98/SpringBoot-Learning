@@ -1,6 +1,7 @@
 package com.hyao.validation.basic;
 
 import com.hyao.common.model.Result;
+import com.hyao.validation.basic.dto.BasicAnnotatedDTO;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
@@ -10,6 +11,8 @@ import javax.validation.Valid;
 
 /**
  * 基本注解测试.
+ *
+ * @see BasicAnnotatedDTO
  */
 @RestController
 @RequestMapping("/valid")

@@ -1,4 +1,4 @@
-package com.hyao.validation.trigger;
+package com.hyao.validation.trigger.dto;
 
 import lombok.Data;
 

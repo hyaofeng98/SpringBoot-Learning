@@ -9,6 +9,11 @@ import org.springframework.web.bind.annotation.RestController;
 
 import javax.validation.Valid;
 
+/**
+ * 嵌套校验示例.
+ *
+ * @see BaseDTO
+ */
 @RestController
 @RequestMapping("/valid")
 public class NestedController {
