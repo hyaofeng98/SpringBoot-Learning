@@ -10,7 +10,7 @@ Spring Boot 学习项目，用 **Maven 多模块聚合工程** 按知识点拆�
 
 - **代码优先**：每个模块都有启动类，改配置、打断点、看日志/监控就能验证结论，README 里的行为都是实跑过的；
 - **不涉及构建、打包与部署**：父 POM 里没有引入 `spring-boot-maven-plugin`，直接在 IDEA 里运行启动类即可；
-- [00-springboot-common](00-springboot-common/README.md) 是**公共库**（统一响应包装 / 全局异常 / 统一日志），02/03/04 依赖它；**01 故意不依赖**，用来演示 Spring MVC 的原生行为。
+- [00-springboot-common](00-springboot-common/README.md) 是**公共库**（统一响应包装 / 全局异常 / 参数校验 / 统一日志），02/03/04/05 依赖它；**01 故意不依赖**，用来演示 Spring MVC 的原生行为。
 
 ## 2. 模块导航
 
@@ -21,6 +21,7 @@ Spring Boot 学习项目，用 **Maven 多模块聚合工程** 按知识点拆�
 | `02-springboot-advice` | 公共能力的示例：用 Controller 演示包装 / 异常 / traceId | 8082 | ✅ 已完成 | [02 模块](02-springboot-advice/README.md) |
 | `03-springboot-mybatis` | 持久层：Spring Boot 集成 MyBatis + Druid（业务场景驱动的 MyBatis 特性） | 8083 | 🚧 进行中 | [03 模块](03-springboot-mybatis/README.md) |
 | `04-springboot-mybatis-plus` | 持久层：MyBatis-Plus | — | ⬜ 规划中（暂未纳入 `<modules>`） | — |
+| `05-springboot-validation` | 参数校验：Bean Validation / Hibernate Validator（声明式 + 编程式 + 分组 + 自定义注解） | 8085 | ✅ 已完成 | [05 模块](05-springboot-validation/README.md) |
 
 > **命名约定**：`序号-springboot-主题`。新增模块 = 建目录 + 在父 POM 的 `<modules>` 里追加一行 + 写该模块的 README。
 
@@ -35,13 +36,13 @@ Spring Boot 学习项目，用 **Maven 多模块聚合工程** 按知识点拆�
 | 数据库（03/04） | 本地 MySQL，库名 `hyao`，表结构与初始数据见各模块 `resources/script/1.sql` |
 | 编码 | 父 POM 统一 `project.build.sourceEncoding=UTF-8`，避免中文注释/响应乱码 |
 
-**端口约定**：各模块在各自的 `application.yaml` 里配置，互不冲突、可以同时启动——01 = 8081、02 = 8082、03 = 8083。注意同一个端口同时只能跑一个实例（`PortInUseException`）。
+**端口约定**：各模块在各自的 `application.yaml` 里配置，互不冲突、可以同时启动——01 = 8081、02 = 8082、03 = 8083、05 = 8085。注意同一个端口同时只能跑一个实例（`PortInUseException`）。
 
 ## 4. 快速开始
 
 1. `git clone` 项目后，用 IDEA 打开**根目录**（Maven 工程会自动导入，包含全部子模块）；
 2. 找到要学的模块，直接运行它的启动类（例如 [`BaseApplication`](01-springboot-base/src/main/java/com/hyao/base/BaseApplication.java)），控制台出现 `Tomcat started on port(s): xxxx` 即启动成功；
-3. 03 模块需要额外准备数据库：先执行 [`script/1.sql`](03-springboot-mybatis/src/main/resources/script/1.sql)，必要时改 `application.yaml` 里的账号密码。
+3. 03 模块需要额外准备数据库：先执行 [`script/1.sql`](03-springboot-mybatis/src/main/resources/script/1.sql)（订单 + 库存）和 [`script/2.sql`](03-springboot-mybatis/src/main/resources/script/2.sql)（数据字典），必要时改 `application.yaml` 里的账号密码。
 
 ```bash
 # 01：原生返回
@@ -54,6 +55,9 @@ curl http://localhost:8082/api/hello
 
 # 03：MyBatis 查询
 curl -X POST http://localhost:8083/user/id -H 'Content-Type: application/json' -d '{"id":1}'
+
+# 05：参数校验失败（400 + SYS0004，注意业务异常才是 200）
+curl -X POST http://localhost:8085/valid/group/create -H 'Content-Type: application/json' -d '{"id":123,"name":"hyao"}'
 ```
 
 ## 5. 项目结构
@@ -65,7 +69,8 @@ SpringBoot-Learning
 ├── 01-springboot-base               # 01 基础：MVC / REST 控制器
 ├── 02-springboot-advice             # 02 公共能力的示例（依赖 00）
 ├── 03-springboot-mybatis            # 03 MyBatis + Druid（依赖 00）
-└── 04-springboot-mybatis-plus       # 04 预留（依赖 00，暂未纳入 modules）
+├── 04-springboot-mybatis-plus       # 04 预留（依赖 00，暂未纳入 modules）
+└── 05-springboot-validation         # 05 参数校验（依赖 00）
 ```
 
 ## 6. 工程约定
@@ -83,7 +88,7 @@ SpringBoot-Learning
    | `druid-spring-boot-starter` | 父 POM 属性 `druid-spring-boot.version` | 第三方，BOM 里没有 |
    | `00-springboot-common` | `${project.version}` | **自家模块**，跟工程版本走，不能用 `spring.boot.version` |
 
-   注意 `dependencyManagement` 只统一**版本**；「要不要依赖」由各模块在自己的 `<dependencies>` 里决定——所以 00 只被 02/03/04 依赖，01 故意不依赖。
+   注意 `dependencyManagement` 只统一**版本**；「要不要依赖」由各模块在自己的 `<dependencies>` 里决定——所以 00 只被 02/03/04/05 依赖，01 故意不依赖。
 
 3. **公共依赖**：`<dependencies>` 里声明的依赖会被**所有子模块继承**：
 
@@ -113,4 +118,4 @@ SpringBoot-Learning
 | `SYS0005` | 参数类型不匹配（如 `pageSize=abc`） | `400` |
 | `SYS0006` | 其余 4xx 兜底 | 原始 4xx |
 
-后端用 `spring-boot-starter-validation`（Bean Validation）做声明式校验，校验失败统一 `400 + SYS0004`（字段错误拼成 `字段: 提示`）。后续模块都遵循这个约定，细节见 [02 模块 README](02-springboot-advice/README.md) 与 [00 模块 README](00-springboot-common/README.md)。
+后端用 `spring-boot-starter-validation`（Bean Validation）做声明式校验，校验失败统一 `400 + SYS0004`（字段错误拼成 `字段: 提示`）。后续模块都遵循这个约定，细节见 [02 模块 README](02-springboot-advice/README.md)、[00 模块 README](00-springboot-common/README.md) 与 [05 模块 README](05-springboot-validation/README.md)。
