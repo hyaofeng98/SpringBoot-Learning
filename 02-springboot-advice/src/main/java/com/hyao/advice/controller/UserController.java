@@ -5,7 +5,7 @@ import com.hyao.common.advice.IgnoreWrapper;
 import com.hyao.common.model.Result;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 
 /**
  * 正常返回示例。

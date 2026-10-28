@@ -13,16 +13,22 @@
         <module>01-springboot-base</module>
         <module>02-springboot-advice</module>
         <module>03-springboot-mybatis</module>
+        <module>04-springboot-mybatis-plus</module>
         <module>05-springboot-validation</module>
     </modules>
 
     <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
+        <maven.compiler.source>21</maven.compiler.source>
+        <maven.compiler.target>21</maven.compiler.target>
+        <maven.compiler.release>21</maven.compiler.release>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <spring.boot.version>2.7.18</spring.boot.version>
-        <mybatis-spring-boot.version>2.3.2</mybatis-spring-boot.version>
+        <spring.boot.version>3.5.16</spring.boot.version>
+        <mybatis-spring-boot.version>3.0.4</mybatis-spring-boot.version>
         <druid-spring-boot.version>1.2.23</druid-spring-boot.version>
+        <mybatis-plus.version>3.5.18</mybatis-plus.version>
+        <lombok.version>1.18.48</lombok.version>
+        <commons-io.version>2.18.0</commons-io.version>
+        <commons-lang3.version>3.21.0</commons-lang3.version>
     </properties>
 
     <!--
@@ -46,10 +52,34 @@
             </dependency>
             <dependency>
                 <groupId>com.alibaba</groupId>
-                <artifactId>druid-spring-boot-starter</artifactId>
+                <artifactId>druid-spring-boot-3-starter</artifactId>
                 <version>${druid-spring-boot.version}</version>
             </dependency>
-
+            <dependency>
+                <groupId>org.projectlombok</groupId>
+                <artifactId>lombok</artifactId>
+                <version>${lombok.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-spring-boot3-starter</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>com.baomidou</groupId>
+                <artifactId>mybatis-plus-jsqlparser</artifactId>
+                <version>${mybatis-plus.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>commons-io</groupId>
+                <artifactId>commons-io</artifactId>
+                <version>${commons-io.version}</version>
+            </dependency>
+            <dependency>
+                <groupId>org.apache.commons</groupId>
+                <artifactId>commons-lang3</artifactId>
+                <version>${commons-lang3.version}</version>
+            </dependency>
             <!-- 公共模块 -->
             <dependency>
                 <groupId>com.hyao.common</groupId>
@@ -73,6 +103,10 @@
             <scope>runtime</scope>
             <optional>true</optional>
         </dependency>
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-properties-migrator</artifactId>
+        </dependency>
 
         <!-- 配置处理器 -->
         <dependency>
@@ -94,11 +128,50 @@
         <dependency>
             <groupId>commons-io</groupId>
             <artifactId>commons-io</artifactId>
-            <version>2.18.0</version>
         </dependency>
         <dependency>
             <groupId>org.apache.commons</groupId>
             <artifactId>commons-lang3</artifactId>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <!--
+              JDK 23 起 javac 默认不再隐式运行 classpath 上的注解处理器，
+              所以这里显式指定 Lombok 与 configuration-processor（配合 <proc>full</proc>）。
+            -->
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-compiler-plugin</artifactId>
+                <version>3.13.0</version>
+                <configuration>
+                    <release>${maven.compiler.release}</release>
+                    <!--
+                      Spring Framework 6.1 起不再从字节码的调试信息推断参数名（@PathVariable、@RequestParam 不写 value 时要用它），
+                      所以必须让 javac 保留方法参数名。
+                    -->
+                    <parameters>true</parameters>
+                    <proc>full</proc>
+                    <annotationProcessorPaths>
+                        <path>
+                            <groupId>org.projectlombok</groupId>
+                            <artifactId>lombok</artifactId>
+                            <version>${lombok.version}</version>
+                        </path>
+                        <path>
+                            <groupId>org.springframework.boot</groupId>
+                            <artifactId>spring-boot-configuration-processor</artifactId>
+                            <version>${spring.boot.version}</version>
+                        </path>
+                    </annotationProcessorPaths>
+                </configuration>
+            </plugin>
+            <plugin>
+                <groupId>org.sonarsource.scanner.maven</groupId>
+                <artifactId>sonar-maven-plugin</artifactId>
+                <version>5.8.0.7211</version>
+            </plugin>
+        </plugins>
+    </build>
 </project>

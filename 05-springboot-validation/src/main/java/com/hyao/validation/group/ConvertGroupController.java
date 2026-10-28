@@ -3,6 +3,7 @@ package com.hyao.validation.group;
 import com.hyao.common.model.Result;
 import com.hyao.validation.group.dto.ConvertGroupDTO;
 import com.hyao.validation.group.groups.OuterCreateGroup;
+import com.hyao.validation.group.groups.OuterUpdateGroup;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
@@ -15,7 +16,7 @@ import org.springframework.web.bind.annotation.RestController;
  * @see ConvertGroupDTO
  */
 @RestController
-@RequestMapping("/valid")
+@RequestMapping("/valid/convertGroup")
 public class ConvertGroupController {
 
     /**
@@ -28,8 +29,23 @@ public class ConvertGroupController {
      *     { "dto": { "id": 123, "name": "hyao", "remark": "" } }
      * </pre>
      */
-    @PostMapping("/convertGroup")
-    public Result<Void> validation(@Validated(OuterCreateGroup.class) @RequestBody ConvertGroupDTO convertGroupDTO) {
+    @PostMapping("/create")
+    public Result<Void> create(@Validated(OuterCreateGroup.class) @RequestBody ConvertGroupDTO convertGroupDTO) {
+        return Result.ok();
+    }
+
+    /**
+     * 外部更新分组.
+     * <pre>
+     *     请求示例:
+     *     POST /valid/convertGroup
+     *
+     *     Content-Type: application/json
+     *     { "dto": { "id": 123, "name": "hyao", "remark": "" } }
+     * </pre>
+     */
+    @PostMapping("/update")
+    public Result<Void> update(@Validated(OuterUpdateGroup.class) @RequestBody ConvertGroupDTO convertGroupDTO) {
         return Result.ok();
     }
 }

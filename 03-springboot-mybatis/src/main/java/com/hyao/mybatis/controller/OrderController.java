@@ -4,7 +4,7 @@ import com.hyao.mybatis.model.order.*;
 import com.hyao.mybatis.service.OrderService;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
+import jakarta.validation.Valid;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;

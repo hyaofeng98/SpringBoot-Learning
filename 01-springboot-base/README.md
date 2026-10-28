@@ -9,7 +9,7 @@
 | 启动类、自动配置与包扫描范围 | `BaseApplication` |
 | 配置文件、静态资源规则 | `application.yaml`、`resources/static/index.html` |
 | 视图控制器：视图名、重定向与转发 | `MyController` |
-| REST 控制器：参数绑定、JSON 序列化 | `MyRestController`、`User` |
+| REST 控制器：参数绑定、JSON 序列化 | `MyRestController`、`UserEntity` |
 
 ## 2. 学习清单
 
@@ -36,7 +36,7 @@
 | --- | --- | --- |
 | `spring-boot-starter-web` | 父 POM 继承 | 内嵌 Tomcat + Spring MVC + Jackson（`@RestController`、消息转换器都靠它） |
 | `spring-boot-devtools` | 父 POM 继承（runtime / optional） | 热部署：编译后自动重启上下文 |
-| `lombok` | 父 POM 继承（provided / optional） | 编译期生成 getter/setter/构造器，`User` 用到 |
+| `lombok` | 父 POM 继承（provided / optional） | 编译期生成 getter/setter/构造器，`UserEntity` 用到 |
 
 ### 3.2 `application.yaml`
 
@@ -109,7 +109,7 @@ public class MyRestController {
 
 - 返回 `String` 由 `StringHttpMessageConverter` 写回（`text/plain;charset=UTF-8`）；返回 POJO / `Map` 由 `MappingJackson2HttpMessageConverter` 写回（`application/json`）——自动序列化成 JSON 靠的就是 `spring-boot-starter-web` 传递引入的 Jackson。
 
-### 4.4 `User`：Lombok 与日期格式
+### 4.4 `UserEntity`：Lombok 与日期格式
 
 ```java
 @Data @Builder @NoArgsConstructor @AllArgsConstructor
@@ -149,7 +149,7 @@ curl -i -X POST http://localhost:8081/api/user/body/object \
 | `POST /api/user` | `{"id":"0001","name":"hyao","age":18,"birthday":"2008-10-16"}`（`birthday` 取 `LocalDate.now().plusYears(-18)`，**会随运行日期变化**） |
 | `POST /api/user/0001` | `{"id":"0001","name":"hyao"}` |
 | `POST /api/user/param?id=0001&name=hyao` | `{"id":"0001","name":"hyao"}` |
-| `POST /api/user/body/map`、`POST /api/user/body/object` | 回显请求体 JSON，`object` 版返回 `User` |
+| `POST /api/user/body/map`、`POST /api/user/body/object` | 回显请求体 JSON，`object` 版返回 `UserEntity` |
 
 ## 6. 常见问题与踩坑
 

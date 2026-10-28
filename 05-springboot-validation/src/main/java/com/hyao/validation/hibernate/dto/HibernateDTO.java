@@ -1,36 +1,26 @@
 package com.hyao.validation.hibernate.dto;
 
-import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 import org.hibernate.validator.constraints.*;
 
-import java.util.Date;
-
 /**
  * Hibernate Validator 注解示例.
- *
- * {@code @ScriptAssert} 注解不推荐使用了，推荐用标准注解或自定义校验器来替代。
+ * <p>{@code org.hibernate.validator.constraints.ScriptAssert} 注解新版本已不再支持，推荐使用 {@code @AssertTrue} 注解
+ * 实现类内断言.
  */
 @Data
-@ScriptAssert(lang = "javascript",
-        script = "_this.date == null || _this.date.time >= Date.now()",
-        message = "日期必须大于当前时间",
-        reportOn = "date")
 public class HibernateDTO {
-
-    @JsonFormat(pattern = "yyyy-MM-dd", timezone = "GMT+8")
-    private Date date;
 
     /**
      * 类似于 {@code @Size} 注解，但语义更明确.
      */
-    @Length(min = 1, max = 10, message = "长度必须在 1 到 10 之间")
+    @Length(min = 1, max = 10, message = "l 长度必须在 1 到 10 之间")
     private String l;
 
     /**
      * 类似于{@code @Min} 和 {@code @Max} 注解合并使用.
      */
-    @Range(min = 0, max = 10, message = "数值必须在 1 到 10 之间")
+    @Range(min = 0, max = 10, message = "r 数值必须在 1 到 10 之间")
     private Integer r;
 
     /**
@@ -49,6 +39,6 @@ public class HibernateDTO {
     /**
      * ISBN 书号.
      */
-    @ISBN(type = ISBN.Type.ANY)
+    @ISBN(type = ISBN.Type.ANY, message = "ISBN 书号必须符合格式")
     private String isbn;
 }

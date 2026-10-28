@@ -3,8 +3,8 @@ package com.hyao.validation.custom.validator;
 import com.hyao.validation.custom.annotation.UsernameUnique;
 import com.hyao.validation.custom.mapper.UserRepository;
 
-import javax.validation.ConstraintValidator;
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 
 /**
  * 用户名唯一的校验器.

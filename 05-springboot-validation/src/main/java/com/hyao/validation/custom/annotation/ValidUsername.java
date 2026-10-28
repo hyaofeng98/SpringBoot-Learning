@@ -3,12 +3,12 @@ package com.hyao.validation.custom.annotation;
 import org.hibernate.validator.constraints.CompositionType;
 import org.hibernate.validator.constraints.ConstraintComposition;
 
-import javax.validation.Constraint;
-import javax.validation.Payload;
-import javax.validation.ReportAsSingleViolation;
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Pattern;
-import javax.validation.constraints.Size;
+import jakarta.validation.Constraint;
+import jakarta.validation.Payload;
+import jakarta.validation.ReportAsSingleViolation;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 import java.lang.annotation.ElementType;
 import java.lang.annotation.Retention;
 import java.lang.annotation.RetentionPolicy;
@@ -25,7 +25,7 @@ import java.lang.annotation.Target;
  */
 @NotBlank
 @Size(min = 2, max = 10)
-@Pattern(regexp = "^[a-zA-Z0-9_]+$")
+@Pattern(regexp = "^\\w+$")
 @ReportAsSingleViolation
 @ConstraintComposition(CompositionType.AND)
 @Target(ElementType.FIELD)

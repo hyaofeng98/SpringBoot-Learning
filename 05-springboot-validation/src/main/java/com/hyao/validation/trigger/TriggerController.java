@@ -5,14 +5,14 @@ import com.hyao.validation.trigger.dto.TriggerDTO;
 import org.springframework.validation.annotation.Validated;
 import org.springframework.web.bind.annotation.*;
 
-import javax.validation.Valid;
-import javax.validation.constraints.Max;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.Max;
 
 /**
  * 请求参数校验的三种方式.
  * 其中第 3,4 种单参数校验方式依赖类级的 {@code @Validated}, 否则不会生效.
  */
-@Validated
+//@Validated
 @RestController
 @RequestMapping("/valid/trigger")
 public class TriggerController {

@@ -6,7 +6,7 @@ import com.hyao.validation.custom.annotation.UsernameUnique;
 import com.hyao.validation.custom.annotation.ValidUsername;
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * 校验逻辑: 见自定义校验注解.

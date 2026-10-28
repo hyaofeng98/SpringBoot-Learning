@@ -2,9 +2,9 @@ package com.hyao.mybatis.model.order;
 
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.NotNull;
-import javax.validation.constraints.Positive;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
+import jakarta.validation.constraints.Positive;
 import java.math.BigDecimal;
 
 /**
@@ -14,11 +14,11 @@ import java.math.BigDecimal;
 public class OrderPayRequest {
 
     /** 订单编号 */
-    @NotBlank(message = "不能为空")
+    @NotBlank(message = "订单编号不能为空")
     private String orderId;
 
     /** 实际支付金额 */
-    @NotNull(message = "不能为空")
-    @Positive(message = "金额必须大于 0")
+    @NotNull(message = "实际支付金额不能为空")
+    @Positive(message = "实际支付金额必须大于 0")
     private BigDecimal payAmount;
 }

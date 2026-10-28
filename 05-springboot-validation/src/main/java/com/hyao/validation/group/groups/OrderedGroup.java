@@ -1,6 +1,6 @@
 package com.hyao.validation.group.groups;
 
-import javax.validation.GroupSequence;
+import jakarta.validation.GroupSequence;
 
 /**
  * 分组顺序校验的关键.

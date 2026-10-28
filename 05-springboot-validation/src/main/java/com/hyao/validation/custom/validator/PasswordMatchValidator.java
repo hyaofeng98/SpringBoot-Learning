@@ -3,8 +3,8 @@ package com.hyao.validation.custom.validator;
 import com.hyao.validation.custom.annotation.PasswordMatch;
 import com.hyao.validation.custom.dto.CustomDTO;
 
-import javax.validation.ConstraintValidator;
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 
 /**
  * 密码匹配注解的校验器.

@@ -4,8 +4,8 @@ import com.hyao.validation.group.groups.NotBlankGroup;
 import com.hyao.validation.group.groups.ValidGroup;
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * 用于验证分组顺序校验.

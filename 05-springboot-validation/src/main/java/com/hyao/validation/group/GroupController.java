@@ -12,7 +12,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 /**
  * 分组校验示例.
- * <p>用于解决同一个对象在不同场景下校验规则不同的问题, JSR-303（javax.validation）通过 groups 机制解决这个问题.
+ * <p>用于解决同一个对象在不同场景下校验规则不同的问题, JSR-303（jakarta.validation）通过 groups 机制解决这个问题.
  *
  * @see GroupDTO
  */

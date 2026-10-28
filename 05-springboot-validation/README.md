@@ -7,7 +7,7 @@
 这个模块用若干最小示例，演示 Spring Boot 里 **参数校验（Bean Validation）** 的完整用法：从「一个注解搞定字段非空」，到「分组、级联分组转换、动态分组、分组顺序」，再到「自定义注解 / 复合注解 / 依赖 Spring Bean 的校验器」，最后是「不走注解的编程式校验」。
 
 <ul>
-<li><b>标准 + 实现</b>：校验规则来自 <b>Bean Validation 2.0（JSR-380，<code>javax.validation</code> 包）</b>，运行时实现是 Boot 自带的 <b>Hibernate Validator 6.2.5</b>；<code>org.hibernate.validator.constraints.*</code> 里的注解是它的扩展。</li>
+<li><b>标准 + 实现</b>：校验规则来自 <b>Jakarta Bean Validation 3.0（JSR-380 的 Jakarta 版本，<code>jakarta.validation</code> 包）</b>，运行时实现是 Boot 自带的 <b>Hibernate Validator 8.0.3</b>；<code>org.hibernate.validator.constraints.*</code> 里的注解是它的扩展。</li>
 <li><b>声明式为主</b>：绝大多数场景只需在 DTO 字段上加注解 + 在接口参数上加 <code>@Valid</code>，校验失败由 <a href="../00-springboot-common/README.md">00 模块</a>的全局异常处理统一转成 <code>400 + SYS0004</code>，不用写 <code>if (x == null)</code>。</li>
 <li><b>零配置</b>：本模块 <code>application.yaml</code> 只有一行 <code>server.port: 8085</code>，校验能力完全由依赖 + 注解驱动。</li>
 </ul>
@@ -116,7 +116,7 @@
 <td>✅</td>
 <td>—</td>
 <td>四种「触发校验」的写法</td>
-<td><code>@RequestBody + @Valid</code>、<code>@RequestBody + @Validated</code>、<code>@RequestParam</code> 上的约束、<code>@PathVariable</code> 上的约束（后两者依赖类级 <code>@Validated</code>）</td>
+<td><code>@RequestBody + @Valid</code>、<code>@RequestBody + @Validated</code>、<code>@RequestParam</code> 上的约束、<code>@PathVariable</code> 上的约束（后两者：类上标 <code>@Validated</code> 时由 AOP 代理校验，抛 <code>ConstraintViolationException</code>；不标时由 Spring MVC 6.1+ 的内置方法校验接管，抛 <code>HandlerMethodValidationException</code>）</td>
 <td><code>/valid/trigger/*</code></td>
 </tr>
 <tr>
@@ -150,7 +150,7 @@
 <li><b>真正执行校验</b>：<code>WebDataBinder</code> 持有 <code>Validator</code>（Boot 自动配置的 <code>LocalValidatorFactoryBean</code>），它把工作交给 Hibernate Validator 的 <code>ValidatorFactory</code>；字段上的注解、类级别注解、<code>groups</code> 在这一步被解释。</li>
 <li><b>失败 → 抛异常</b>：<code>@RequestBody</code> 校验失败抛 <code>MethodArgumentNotValidException</code>；表单绑定失败抛 <code>BindException</code>。</li>
 <li><b>兜底转换</b>：<a href="../00-springboot-common/README.md">00 模块</a>的 <code>GlobalExceptionHandler</code> 把前两者都转成 <code>400 + Result(SYS0004, "参数校验失败: 字段: 提示; ...")</code>。</li>
-<li><b>另一条链路（单参数 / 类级 <code>@Validated</code>）</b>：Controller 类上标了 <code>@Validated</code> 时，Spring 用 <code>MethodValidationPostProcessor</code> 生成代理，方法调用前由 <code>ExecutableValidator</code> 校验参数，失败抛 <code>ConstraintViolationException</code>，同样由 <code>GlobalExceptionHandler</code> 转成 <code>400 + SYS0004</code>（路径会带方法名，见 §4.3.2）。</li>
+<li><b>第三条链路（单参数 / 类级 <code>@Validated</code>）</b>：Controller 类上标了 <code>@Validated</code> 时，Spring 用 <code>MethodValidationPostProcessor</code> 生成代理，方法调用前由 <code>ExecutableValidator</code> 校验参数，失败抛 <code>ConstraintViolationException</code>，同样由 <code>GlobalExceptionHandler</code> 转成 <code>400 + SYS0004</code>（路径会带方法名，见 §4.3.2）。</li>
 </ol>
 
 ## 3. 依赖与配置
@@ -167,9 +167,9 @@
 ```
 
 <ul>
-<li><code>00-springboot-common</code> 自己声明了 <code>spring-boot-starter-validation</code>（Bean Validation API + Hibernate Validator），所以 05 能直接用 <code>javax.validation.constraints.*</code> 与 <code>org.hibernate.validator.constraints.*</code>；</li>
+<li><code>00-springboot-common</code> 自己声明了 <code>spring-boot-starter-validation</code>（Bean Validation API + Hibernate Validator），所以 05 能直接用 <code>jakarta.validation.constraints.*</code> 与 <code>org.hibernate.validator.constraints.*</code>；</li>
 <li><code>spring-boot-starter-web</code>、Jackson、Lombok、<code>commons-lang3</code> 等来自父 POM 的公共依赖（所有子模块自动继承），所以本模块 POM 里看不到它们；</li>
-<li>版本由父 POM 的 <code>spring-boot-dependencies</code> BOM 统一管理（Boot 2.7.18 → Hibernate Validator 6.2.5.Final），子模块不写 <code>&lt;version&gt;</code>。</li>
+<li>版本由父 POM 的 <code>spring-boot-dependencies</code> BOM 统一管理（Boot 3.5.16 → Hibernate Validator 8.0.3.Final），子模块不写 <code>&lt;version&gt;</code>。</li>
 </ul>
 
 ### 3.2 配置
@@ -285,7 +285,7 @@ server:
 
 <ul>
 <li><b>启动类</b>：<code>ValidationApplication</code> 只有 <code>@SpringBootApplication</code>，没有 <code>@EnableWebMvc</code>、没有 <code>@EnableMethodValidation</code> 之类的东西。</li>
-<li><b>校验器从哪来</b>：Boot 的 <code>ValidationAutoConfiguration</code> 检测到 classpath 上有 Hibernate Validator，就注册一个 <code>LocalValidatorFactoryBean</code>（同时实现 Spring 的 <code>Validator</code> 和 Bean Validation 的 <code>ValidatorFactory</code>/<code>Validator</code>），把它作为 <code>@Primary</code> 的 <code>Validator</code> Bean——所以 <code>ProgrammaticService</code> 里可以直接构造器注入 <code>javax.validation.Validator</code>。</li>
+<li><b>校验器从哪来</b>：Boot 的 <code>ValidationAutoConfiguration</code> 检测到 classpath 上有 Hibernate Validator，就注册一个 <code>LocalValidatorFactoryBean</code>（同时实现 Spring 的 <code>Validator</code> 和 Bean Validation 的 <code>ValidatorFactory</code>/<code>Validator</code>），把它作为 <code>@Primary</code> 的 <code>Validator</code> Bean——所以 <code>ProgrammaticService</code> 里可以直接构造器注入 <code>jakarta.validation.Validator</code>。</li>
 <li><b>参数校验怎么接上</b>：<code>WebMvcAutoConfiguration</code> 会把这个 <code>Validator</code> 装配进 <code>WebDataBinder</code>，<code>@Valid</code> 参数因此有校验器可用。</li>
 <li><b>单参数校验怎么接上</b>：classpath 上有 Bean Validation 时，Boot 注册 <code>MethodValidationPostProcessor</code>；<code>@Validated</code> 标在 <code>TriggerController</code> / <code>OrderedGroupController</code> 类上，Spring 为它们生成 AOP 代理，<code>@RequestParam</code>、<code>@PathVariable</code> 上的约束才生效（不标就完全不起作用）。</li>
 <li><b>异常收口</b>：00 模块的 <code>CommonWebAutoConfiguration</code> 通过 starter 的 <code>AutoConfiguration.imports</code> 注册了 <code>GlobalExceptionHandler</code>，本模块不用写任何 try-catch 就得到结构化错误。</li>
@@ -408,7 +408,7 @@ public @interface ValidUsername { ... }
 private GroupDTO dto;
 ```
 
-<b>重要坑</b>：<code>@ConvertGroup</code> 在 Bean Validation 2.0 里是 <code>@Repeatable</code> 的，javac 会把同一个字段上的多个 <code>@ConvertGroup</code> 合成一个 <code>@ConvertGroup.List</code> 容器注解，而 <b>Hibernate Validator 6.2.5 只识别直接标注的 <code>@ConvertGroup</code></b>，容器注解被忽略——表现为「转换静默失效、内层完全没校验」，而不是报错。所以一个字段只写一个 <code>@ConvertGroup</code>；多个场景就拆成多个 DTO，或让控制器直接请求内层分组。
+<b>版本差异</b>：<code>@ConvertGroup</code> 是 <code>@Repeatable</code> 的，javac 会把同一个字段上的多个 <code>@ConvertGroup</code> 合成一个 <code>@ConvertGroup.List</code> 容器注解。<b>Hibernate Validator 6.x 只识别直接标注的 <code>@ConvertGroup</code></b>，容器注解被忽略——表现为「转换静默失效、内层完全没校验」，而不是报错；<b>本项目升级后的 HV 8.0.3 已能正确处理容器注解</b>（实测：同一字段写两个转换，按 <code>OuterCreateGroup</code> 校验时内层 <code>inner.id</code> 的 <code>@Null</code> 能正常触发）。当前代码仍只写一个 <code>@ConvertGroup</code>，这是跨版本都成立的保守写法；真要写多个，请确认 HV 版本 ≥ 8。
 
 #### 4.2.10 动态分组（条件必填）：`DynamicDTO` + `@GroupSequenceProvider`
 
@@ -454,7 +454,7 @@ public interface OrderedGroup { }
 <li><code>@URL(protocol, host)</code>：基于正则的 URL 校验，可限制协议与主机；</li>
 <li><code>@CreditCardNumber</code>：Luhn 算法，能挡掉随便敲的数字串；</li>
 <li><code>@ISBN(type = ANY)</code>：书号校验；</li>
-<li><code>@ScriptAssert(lang, script, reportOn)</code>：类级别、用脚本表达式做跨字段校验，<code>reportOn</code> 指定把错误挂到哪个字段。它依赖 JSR-223 脚本引擎，官方已不推荐（见 §4.4 第 7 条）。</li>
+<li><b>跨字段校验不再用 <code>@ScriptAssert</code></b>：它依赖 JSR-223 脚本引擎，JDK 15 起 Nashorn 被移除（见 §4.4 第 7 条），所以 <code>HibernateDTO</code> 改成类内的 <code>@AssertTrue</code> 方法 <code>isDateValid()</code>，并用 <code>@JsonIgnore</code> 防止它被序列化进响应。</li>
 </ul>
 
 #### 4.2.13 四种触发方式 + 编程式校验：`TriggerController` / `ProgrammaticService`
@@ -463,7 +463,7 @@ public interface OrderedGroup { }
 <tr>
 <th>方式</th>
 <th>写法</th>
-<th>是否依赖类级 <code>@Validated</code></th>
+<th>类级 <code>@Validated</code> 的影响</th>
 <th>失败异常 / 路径</th>
 </tr>
 <tr>
@@ -481,22 +481,27 @@ public interface OrderedGroup { }
 <tr>
 <td>3. <code>@RequestParam</code> 上的约束</td>
 <td><code>byParam(@RequestParam("id") @Max(100) Integer id)</code></td>
-<td><b>是</b></td>
-<td><code>ConstraintViolationException</code>，路径 <code>byParam.id</code></td>
+<td>标了：抛 <code>ConstraintViolationException</code>（路径 <code>byParam.id</code>）<br>不标：抛 <code>HandlerMethodValidationException</code>（路径不带方法名）</td>
 </tr>
 <tr>
 <td>4. <code>@PathVariable</code> 上的约束</td>
 <td><code>byPath(@PathVariable("id") @Max(100) Integer id)</code></td>
-<td><b>是</b></td>
-<td><code>ConstraintViolationException</code>，路径 <code>byPath.id</code></td>
+<td>标了：抛 <code>ConstraintViolationException</code>（路径 <code>byPath.id</code>）<br>不标：抛 <code>HandlerMethodValidationException</code>（路径不带方法名）</td>
 </tr>
 <tr>
 <td>5. 编程式</td>
-<td>注入 <code>javax.validation.Validator</code>，<code>validator.validate(dto)</code></td>
+<td>注入 <code>jakarta.validation.Validator</code>，<code>validator.validate(dto)</code></td>
 <td>否</td>
 <td>自己抛 <code>BizException(SysErrorCode.PARAM_INVALID)</code></td>
 </tr>
 </table>
+
+<p><b>怎么才能触发 <code>HandlerMethodValidationException</code>（本项目实测）</b>：它由 <b>Spring MVC 自己的方法参数校验</b>（Spring Framework 6.1 起，<code>HandlerMethodValidator</code>）抛出，前提是控制器<b>没有被 <code>@Validated</code> 代理</b>——类上一标 <code>@Validated</code>，<code>MethodValidationPostProcessor</code> 就会生成代理，参数校验改由 <code>ExecutableValidator</code> 做，抛的是 <code>ConstraintViolationException</code>，MVC 就不再插手。所以：</p>
+<ul>
+<li>临时去掉 <code>TriggerController</code> 类上的 <code>@Validated</code>，<code>GET /valid/trigger/param?id=111</code> 的响应从 <code>参数校验失败: byParam.id: 不能超过 100</code> 变成 <code>参数校验失败: 不能超过 100</code>，日志里 handler 从 <code>ConstraintViolationException</code> 变成 <code>HandlerMethodValidationException</code>（本机验证过，改完已还原）；</li>
+<li>约束必须写在<b>非 <code>@RequestBody</code></b> 的参数上（<code>@RequestParam</code>/<code>@PathVariable</code>/<code>@RequestHeader</code>、cross-parameter 约束）；<code>@RequestBody</code> 带 <code>@Valid</code> 时在参数解析阶段就抛 <code>MethodArgumentNotValidException</code>，永远走不到它；</li>
+<li>注意它<b>不带字段路径</b>：00 的 handler 只取 <code>defaultMessage</code>，所以 message 里没有 <code>id:</code> 前缀；要补字段名可用 <code>ex.getParameterValidationResults()</code> 里的 <code>getMethodParameter().getParameterName()</code>。</li>
+</ul>
 
 编程式校验适合「校验发生在 Service 内部、对象不是从 HTTP 请求直接来的」场景：<code>ProgrammaticService</code> 把违规消息用 <code>"; "</code> 拼起来写日志，然后抛 <code>BizException</code>——注意这属于<b>业务异常</b>，HTTP 状态码是 <code>200</code>，响应体里的 message 是错误码的固定文案（字段明细只在日志里，见 §4.4 第 6 条）。
 
@@ -512,12 +517,12 @@ public interface OrderedGroup { }
 </tr>
 <tr>
 <td>约束注解（标准）</td>
-<td><code>jakarta.validation:jakarta.validation-api</code>（包名仍是 <code>javax.validation</code>）</td>
+<td><code>jakarta.validation:jakarta.validation-api</code>（包名 <code>jakarta.validation</code>，版本 3.0.2）</td>
 <td>定义 <code>@NotNull</code>、<code>@Size</code>、<code>groups</code>、<code>@Constraint</code> 等契约</td>
 </tr>
 <tr>
 <td>校验实现</td>
-<td><code>org.hibernate.validator:hibernate-validator</code>（Boot 2.7.18 带 6.2.5.Final）</td>
+<td><code>org.hibernate.validator:hibernate-validator</code>（Boot 3.5.16 带 8.0.3.Final）</td>
 <td>解释注解、执行 <code>ConstraintValidator</code>、维护 <code>ValidatorFactory</code>/<code>Validator</code>，并提供 <code>org.hibernate.validator.constraints.*</code> 扩展注解和 <code>@GroupSequenceProvider</code> 等 SPI 实现</td>
 </tr>
 <tr>
@@ -544,12 +549,12 @@ public interface OrderedGroup { }
 
 <ol>
 <li><b>基本类型 + <code>@AssertTrue</code> 会「默认失败」</b>：<code>private boolean fieldBoolean</code> 上的 <code>@AssertTrue</code> 意味着「必须为 true」，请求里不传这个字段时 Jackson 保持默认值 <code>false</code> → 直接违规。实测 <code>POST /valid/basic {}</code> 返回 6 条错误，其中就有 <code>fieldBoolean: 字段值必须为 true</code>。想「不传也合法」请用包装类型 <code>Boolean</code>。</li>
-<li><b>一个字段写两个 <code>@ConvertGroup</code> 会静默失效</b>：javac 合成 <code>@ConvertGroup.List</code>，HV 6.2.5 不认，级联分组转换完全不生效（见 §4.2.9）。</li>
+<li><b>重复的 <code>@ConvertGroup</code> 要看 HV 版本</b>：javac 会把它们合成 <code>@ConvertGroup.List</code>，<b>HV 6.x 只认直接标注的 <code>@ConvertGroup</code></b>，级联分组转换会静默失效；HV 8.0.3 已支持容器注解（实测可用）。当前代码每个参数只留一个（见 §4.2.9），不依赖版本差异。</li>
 <li><b><code>@GroupSequence</code> 是「短路」的</b>：第一组不通过，后面的组不会执行，所以别指望同时看到「必填」和「格式」两类错误（见 §4.2.11）。</li>
 <li><b>分组校验不会顺带校验默认分组</b>：<code>@Validated(CreateGroup.class)</code> 只跑 <code>CreateGroup</code> 里的约束；<code>remark</code> 这种不写 <code>groups</code> 的字段必须额外指定分组，或在参数上不写分组用 <code>@Validated</code>。</li>
 <li><b>类级 <code>@Validated</code> 会给错误路径加方法名前缀</b>：<code>byParam.id</code>、<code>validation.orderedGroupDTO.id</code>，前端按字段名匹配时要考虑这个差异（见 §4.3.2）。</li>
 <li><b>编程式校验的 message 不含字段明细</b>：<code>throw new BizException(SysErrorCode.PARAM_INVALID)</code> 只带错误码的固定文案「参数校验失败」；字段明细被写进日志。想让前端看到明细，得自己拼 message（或换一个错误码）。</li>
-<li><b><code>@ScriptAssert</code> 依赖 JSR-223 脚本引擎</b>：JDK 8 自带 Nashorn，实测正常；<b>JDK 15+ 已移除 Nashorn</b>，实测（JDK 21 运行）调用 <code>/valid/hibernate</code> 会抛 <code>ConstraintDeclarationException: HV000170: No JSR-223 scripting engine could be bootstrapped for language "javascript"</code>，被兜底成 <code>200 + SYS0001 系统内部异常</code>。要兼容高版本 JDK 需引入 <code>org.openjdk.nashorn:nashorn-core</code>，更推荐改成自定义校验器。</li>
+<li><b><code>@ScriptAssert</code> 依赖 JSR-223 脚本引擎</b>：JDK 15 起 Nashorn 被移除，在 JDK 27 上会抛 <code>ConstraintDeclarationException: HV000170: No JSR-223 scripting engine could be bootstrapped for language "javascript"</code>，被兜底成 <code>200 + SYS0001</code>。所以 <code>HibernateDTO</code> 已改用类内 <code>@AssertTrue</code> 方法，实测（JDK 27）返回 <code>400 + dateValid: 日期必须大于当前时间</code>。</li>
 <li><b><code>message</code> 文案和实际规则可能对不上</b>：<code>BasicAnnotatedDTO</code> 里 <code>@Min(value = 1, message = "字段值不能小于 0")</code>、<code>@Max(value = 10, message = "字段值不能大于 150")</code>，提示语和阈值不一致（示例代码里的复制遗留），排错时以注解的 value 为准。</li>
 <li><b>类级别约束需要手动挂字段</b>：不加 <code>disableDefaultConstraintViolation()</code> 会出现「类级一条 + 字段一条」重复报错；不加 <code>addPropertyNode()</code> 则前端无法定位字段（见 §4.2.5）。</li>
 <li><b>校验器里的 <code>null</code> 判断</b>：自定义校验器对 <code>null</code> 一般应返回 <code>true</code>，必填交给 <code>@NotBlank</code>/<code>@NotNull</code>，否则会出现「两个错误码描述同一件事」。</li>
@@ -591,7 +596,7 @@ curl -s -X POST http://localhost:8085/valid/orderedGroup -H 'Content-Type: appli
 curl -s -X POST http://localhost:8085/valid/nested -H 'Content-Type: application/json' \
   -d '{"nested":{"id":"12345"},"list1":[{"id":"123456"}],"list2":[{"id":"123456"}],"list3":["111",""],"map":{"id":""}}'
 
-# 9. 单参数校验（依赖类级 @Validated）
+# 9. 单参数校验（类级 @Validated 时抛 ConstraintViolationException；去掉类级 @Validated 则抛 HandlerMethodValidationException）
 curl -s 'http://localhost:8085/valid/trigger/param?id=111'
 
 # 10. Hibernate Validator 扩展注解（注意 @Range 的 min=0，r 传 0 是合法的，要用 15 才违规）
@@ -602,11 +607,11 @@ curl -s -X POST http://localhost:8085/valid/hibernate -H 'Content-Type: applicat
 curl -s -X POST http://localhost:8085/valid/programmatic -H 'Content-Type: application/json' \
   -d '{"password":"123456","confirmPassword":"1234567"}'
 
-# 12. 路径参数上的约束（依赖类级 @Validated）
+# 12. 路径参数上的约束（同上：类级 @Validated 决定抛哪种异常）
 curl -s http://localhost:8085/valid/trigger/path/111
 ```
 
-实测结果（2026-10-24，JDK 8 运行；`400` 的都是 `SYS0004`，`200` 的 `SUC0000` 表示校验通过）：
+实测结果（2026-10-28，JDK 27 + Spring Boot 3.5.16 运行；`400` 的都是 `SYS0004`，`200` 的 `SUC0000` 表示校验通过）：
 
 <table>
 <tr>
@@ -680,24 +685,20 @@ curl -s http://localhost:8085/valid/trigger/path/111
 <td><code>参数校验失败: validation.orderedGroupDTO.address: 地址不能为空; validation.orderedGroupDTO.id: ID不能为空</code></td>
 </tr>
 <tr>
-<td><code>POST /valid/hibernate</code> 全字段非法（<code>l:""</code>、<code>r:15</code>、<code>url:http://example.com</code>、<code>date:2020-01-01</code>、<code>creditCard:"1234"</code>、<code>isbn:"123"</code>，JDK 8 运行）</td>
+<td><code>POST /valid/hibernate</code> 全字段非法（<code>l:""</code>、<code>r:15</code>、<code>url:http://example.com</code>、<code>date:2020-01-01</code>、<code>creditCard:"1234"</code>、<code>isbn:"123"</code>，JDK 27 运行）</td>
 <td><code>400</code></td>
-<td><code>参数校验失败: l: 长度必须在 1 到 10 之间; url: URL 必须是 https 协议，主机是 example.com; date: 日期必须大于当前时间; isbn: 无效 ISBN; creditCard: 信用卡号必须符合格式; r: 数值必须在 1 到 10 之间</code></td>
+<td><code>参数校验失败: l: 长度必须在 1 到 10 之间; url: URL 必须是 https 协议，主机是 example.com; dateValid: 日期必须大于当前时间; isbn: 无效 ISBN; creditCard: 信用卡号必须符合格式; r: 数值必须在 1 到 10 之间</code></td>
 </tr>
 <tr>
 <td><code>POST /valid/hibernate</code> 全字段合法（<code>l:"abc"</code>、<code>r:5</code>、<code>url:https://example.com/a</code>、<code>date:2099-01-01</code>、<code>creditCard:"4111111111111111"</code>、<code>isbn:"978-3-16-148410-0"</code>）</td>
 <td><code>200</code></td>
 <td><code>操作成功</code></td>
 </tr>
-<tr>
-<td><code>POST /valid/hibernate</code> 同一报文在 JDK 21 下运行</td>
-<td><code>200</code></td>
-<td><code>系统内部异常</code>（<code>SYS0001</code>，原因见 §4.4 第 7 条）</td>
-</tr>
+
 <tr>
 <td><code>POST /valid/nested</code> 示例报文</td>
 <td><code>400</code></td>
-<td><code>参数校验失败: map[id]: 值不能为空; list2[0].id: 长度不能超过 4; list1[0].id: 长度不能超过 4; nested.id: 长度不能超过 4; list3[1]: 集合中的元素不能为空</code></td>
+<td><code>参数校验失败: map[]: 键不能为空; list2[0].id: 长度不能超过 4; list1[0].id: 长度不能超过 4; nested.id: 长度不能超过 4; list3[1]: 集合中的元素不能为空</code></td>
 </tr>
 <tr>
 <td><code>POST /valid/programmatic</code> 密码不一致</td>
@@ -738,7 +739,7 @@ curl -s http://localhost:8085/valid/trigger/path/111
 </tr>
 <tr>
 <td>接口收到非法参数仍然返回 <code>SUC0000</code></td>
-<td>参数上没有 <code>@Valid</code>/<code>@Validated</code>；或嵌套对象字段没加 <code>@Valid</code>；或 <code>@RequestParam</code> 上的约束缺类级 <code>@Validated</code></td>
+<td>参数上没有 <code>@Valid</code>/<code>@Validated</code>；或嵌套对象字段没加 <code>@Valid</code>；或 <code>@RequestParam</code> 上的约束既不标类级 <code>@Validated</code>、控制器又没走 MVC 内置校验（如参数在 <code>@ModelAttribute</code> 里）</td>
 <td>按 §2.2 的链路对照检查：外层 <code>@Valid</code>、嵌套 <code>@Valid</code>、类级 <code>@Validated</code> 三处缺一不可</td>
 </tr>
 <tr>
@@ -748,8 +749,8 @@ curl -s http://localhost:8085/valid/trigger/path/111
 </tr>
 <tr>
 <td><code>/valid/convertGroup</code> 明明 id 有值却不报错</td>
-<td>字段上写了两个 <code>@ConvertGroup</code>，被合成 <code>@ConvertGroup.List</code>，HV 6.2.5 忽略</td>
-<td>拆成多个 DTO，或让控制器直接请求内层分组（见 §4.2.9）</td>
+<td>字段上写了两个 <code>@ConvertGroup</code>，被合成 <code>@ConvertGroup.List</code>；HV 6.x 会忽略，HV 8.0.3 已支持</td>
+<td>拆成多个 DTO，或让控制器直接请求内层分组（见 §4.2.9）；老版本 HV 上不要依赖重复注解</td>
 </tr>
 <tr>
 <td><code>/valid/orderedGroup</code> 只报「必填」，看不到格式错误</td>
@@ -768,8 +769,8 @@ curl -s http://localhost:8085/valid/trigger/path/111
 </tr>
 <tr>
 <td><code>/valid/hibernate</code> 返回 <code>SYS0001</code></td>
-<td>JDK 15+ 没有 Nashorn，<code>@ScriptAssert</code> 初始化失败（<code>HV000170</code>）</td>
-<td>用 JDK 8 运行，或改成自定义校验器，或引入 <code>nashorn-core</code>（见 §4.4 第 7 条）</td>
+<td>JDK 15+ 没有 Nashorn，<code>@ScriptAssert</code> 会初始化失败（<code>HV000170</code>）——当前代码已改用 <code>@AssertTrue</code> 方法</td>
+<td>别用 <code>@ScriptAssert</code>，改用 <code>@AssertTrue</code> 方法或自定义校验器（见 §4.4 第 7 条）</td>
 </tr>
 <tr>
 <td>返回 200 但 <code>code</code> 是 <code>SYS0004</code></td>
@@ -786,7 +787,7 @@ curl -s http://localhost:8085/valid/trigger/path/111
 ## 7. 学习笔记
 
 <ul>
-<li><b>标准 vs 实现</b>：<code>javax.validation.constraints.*</code> 是规范（JSR-380），Hibernate Validator 是它的实现；<code>org.hibernate.validator.constraints.*</code> 与 <code>@GroupSequenceProvider</code> 等属于实现方扩展，换实现（如 Apache BVal）就不保证可用。</li>
+<li><b>标准 vs 实现</b>：<code>jakarta.validation.constraints.*</code> 是规范（JSR-380），Hibernate Validator 是它的实现；<code>org.hibernate.validator.constraints.*</code> 与 <code>@GroupSequenceProvider</code> 等属于实现方扩展，换实现（如 Apache BVal）就不保证可用。</li>
 <li><b>默认分组是无处不在的</b>：不写 <code>groups</code> 的约束都属于 <code>Default</code> 分组；<code>@Valid</code> 等价于「按默认分组校验」。理解了这一点，<code>@Validated(groups)</code>、<code>@GroupSequence</code>、<code>@ConvertGroup</code>、<code>@GroupSequenceProvider</code> 就串起来了。</li>
 <li><b>校验器应该无状态</b>：HV 会缓存校验器实例，多个请求/线程可能复用同一个实例，所以不要在 <code>ConstraintValidator</code> 的字段里存请求相关的数据。</li>
 <li><b>校验只解决「形状」，不解决「业务」</b>：唯一性、库存、状态机这类需要查库/查状态的规则，要么像 <code>@UsernameUnique</code> 那样显式依赖 Repository（注意并发与性能），要么放到 Service 里做（编程式或业务判断）。</li>

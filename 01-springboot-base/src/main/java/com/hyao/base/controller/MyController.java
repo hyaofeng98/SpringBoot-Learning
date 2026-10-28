@@ -1,6 +1,7 @@
 package com.hyao.base.controller;
 
 import org.springframework.stereotype.Controller;
+import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestMethod;
 
@@ -35,7 +36,7 @@ public class MyController {
      * 转发到其他controller或资源。
      * <p>服务器内部转发，浏览器地址不变。
      */
-    @RequestMapping("/forward")
+    @GetMapping("/forward")
     public String helloByForward() {
         return "forward:/index.html";
     }
@@ -56,7 +57,7 @@ public class MyController {
      * 模版引擎如thymeleaf在另外的模块中学习。
      * @return 视图名称
      */
-    @RequestMapping("/view")
+    @GetMapping("/view")
     public String helloByView() {
         return "index";
     }

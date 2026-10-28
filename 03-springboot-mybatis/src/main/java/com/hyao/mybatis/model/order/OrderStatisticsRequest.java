@@ -3,7 +3,7 @@ package com.hyao.mybatis.model.order;
 import com.fasterxml.jackson.annotation.JsonFormat;
 import lombok.Data;
 
-import javax.validation.constraints.*;
+import jakarta.validation.constraints.*;
 import java.time.LocalDate;
 import java.time.temporal.ChronoUnit;
 
@@ -14,23 +14,23 @@ import java.time.temporal.ChronoUnit;
 public class OrderStatisticsRequest {
 
     /** 统计开始日期 */
-    @NotNull(message = "不能为空")
+    @NotNull(message = "统计开始日期不能为空")
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate beginDate;
 
     /** 统计结束日期 */
-    @NotNull(message = "不能为空")
+    @NotNull(message = "统计结束日期不能为空")
     @JsonFormat(pattern = "yyyy-MM-dd")
     private LocalDate endDate;
 
     /** 统计维度 */
-    @NotBlank(message = "不能为空")
-    @Pattern(regexp = "day|status", message = "只能是 day 或 status")
+    @NotBlank(message = "统计维度不能为空")
+    @Pattern(regexp = "day|status", message = "统计维度只能是 day 或 status")
     private String dimension;
 
     /** 订单状态 */
-    @Min(value = 0, message = "最小值为 0")
-    @Max(value = 4, message = "最大值为 4")
+    @Min(value = 0, message = "订单状态最小值为 0")
+    @Max(value = 4, message = "订单状态最大值为 4")
     private Integer status;
 
     /**

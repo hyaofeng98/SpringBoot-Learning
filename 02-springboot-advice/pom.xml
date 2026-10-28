@@ -13,12 +13,6 @@
     <artifactId>02-springboot-advice</artifactId>
     <description>响应包装 + 全局异常 + 统一日志</description>
 
-    <properties>
-        <maven.compiler.source>8</maven.compiler.source>
-        <maven.compiler.target>8</maven.compiler.target>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-    </properties>
-
     <dependencies>
         <!--
           公共库（响应包装 / 全局异常 / traceId 日志）。

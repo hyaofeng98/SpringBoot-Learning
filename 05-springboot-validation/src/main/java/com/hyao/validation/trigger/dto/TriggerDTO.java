@@ -2,13 +2,13 @@ package com.hyao.validation.trigger.dto;
 
 import lombok.Data;
 
-import javax.validation.constraints.Max;
-import javax.validation.constraints.NotNull;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.NotNull;
 
 @Data
 public class TriggerDTO {
 
-    @NotNull
-    @Max(value = 100, message = "不能超过 100")
+    @NotNull(message = "id 不能为空")
+    @Max(value = 100, message = "id 长度不能超过 100")
     private Integer id;
 }

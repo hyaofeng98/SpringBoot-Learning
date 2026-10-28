@@ -20,7 +20,7 @@ Spring Boot 学习项目，用 **Maven 多模块聚合工程** 按知识点拆�
 | `01-springboot-base` | 基础入门：启动类、配置文件、静态资源、MVC / REST 控制器 | 8081 | ✅ 已完成 | [01 模块](01-springboot-base/README.md) |
 | `02-springboot-advice` | 公共能力的示例：用 Controller 演示包装 / 异常 / traceId | 8082 | ✅ 已完成 | [02 模块](02-springboot-advice/README.md) |
 | `03-springboot-mybatis` | 持久层：Spring Boot 集成 MyBatis + Druid（业务场景驱动的 MyBatis 特性） | 8083 | 🚧 进行中 | [03 模块](03-springboot-mybatis/README.md) |
-| `04-springboot-mybatis-plus` | 持久层：MyBatis-Plus | — | ⬜ 规划中（暂未纳入 `<modules>`） | — |
+| `04-springboot-mybatis-plus` | 持久层：MyBatis-Plus（BaseMapper / Wrapper / 分页 / 逻辑删除 / 乐观锁 / 自动填充 / 枚举 / IService / 批量 / 插件） | 8084 | 🚧 进行中 | [04 模块](04-springboot-mybatis-plus/README.md) |
 | `05-springboot-validation` | 参数校验：Bean Validation / Hibernate Validator（声明式 + 编程式 + 分组 + 自定义注解） | 8085 | ✅ 已完成 | [05 模块](05-springboot-validation/README.md) |
 
 > **命名约定**：`序号-springboot-主题`。新增模块 = 建目录 + 在父 POM 的 `<modules>` 里追加一行 + 写该模块的 README。
@@ -29,20 +29,22 @@ Spring Boot 学习项目，用 **Maven 多模块聚合工程** 按知识点拆�
 
 | 项 | 版本 / 说明 |
 | --- | --- |
-| JDK | 8（父 POM `maven.compiler.source/target=8`） |
+| JDK | 27（运行）；编译语言级别 21（父 POM `maven.compiler.release=21`） |
 | Maven | 3.6+（或直接用 IDEA 内置的 Maven） |
-| Spring Boot | 2.7.18（父 POM 属性 `spring.boot.version` 统一指定） |
+| 编译 | maven-compiler-plugin 3.13.0：`release=21` + `-parameters` + 显式注解处理器（Lombok 1.18.48、spring-boot-configuration-processor） |
+| Spring Boot | 3.5.16（父 POM 属性 `spring.boot.version` 统一指定） |
 | IDE | IntelliJ IDEA，需安装 **Lombok 插件**并开启注解处理（`Settings → Build → Compiler → Annotation Processors → Enable annotation processing`），否则会报「找不到 `getXxx()` 方法」 |
-| 数据库（03/04） | 本地 MySQL，库名 `hyao`，表结构与初始数据见各模块 `resources/script/1.sql` |
+| 数据库（03/04） | 本地 MySQL：03 用库名 `hyao`，04 用独立库名 `hyao_mp`（互不干扰），表结构与初始数据见各模块 `resources/script/1.sql` |
 | 编码 | 父 POM 统一 `project.build.sourceEncoding=UTF-8`，避免中文注释/响应乱码 |
 
-**端口约定**：各模块在各自的 `application.yaml` 里配置，互不冲突、可以同时启动——01 = 8081、02 = 8082、03 = 8083、05 = 8085。注意同一个端口同时只能跑一个实例（`PortInUseException`）。
+**端口约定**：各模块在各自的 `application.yaml` 里配置，互不冲突、可以同时启动——01 = 8081、02 = 8082、03 = 8083、04 = 8084、05 = 8085。注意同一个端口同时只能跑一个实例（`PortInUseException`）。
 
 ## 4. 快速开始
 
 1. `git clone` 项目后，用 IDEA 打开**根目录**（Maven 工程会自动导入，包含全部子模块）；
 2. 找到要学的模块，直接运行它的启动类（例如 [`BaseApplication`](01-springboot-base/src/main/java/com/hyao/base/BaseApplication.java)），控制台出现 `Tomcat started on port(s): xxxx` 即启动成功；
-3. 03 模块需要额外准备数据库：先执行 [`script/1.sql`](03-springboot-mybatis/src/main/resources/script/1.sql)（订单 + 库存）和 [`script/2.sql`](03-springboot-mybatis/src/main/resources/script/2.sql)（数据字典），必要时改 `application.yaml` 里的账号密码。
+3. 03 模块需要额外准备数据库：先执行 [`script/1.sql`](03-springboot-mybatis/src/main/resources/script/1.sql)（订单 + 库存）和 [`script/2.sql`](03-springboot-mybatis/src/main/resources/script/2.sql)（数据字典），必要时改 `application.yaml` 里的账号密码；
+4. 04 模块是独立库：执行 [`04 的 script/1.sql`](04-springboot-mybatis-plus/src/main/resources/script/1.sql)（新建 `hyao_mp` 库 + 5 张 `mp_*` 表 + 种子数据，可重复执行），它与 03 的 `hyao` 库互不影响。
 
 ```bash
 # 01：原生返回
@@ -55,6 +57,9 @@ curl http://localhost:8082/api/hello
 
 # 03：MyBatis 查询
 curl -X POST http://localhost:8083/user/id -H 'Content-Type: application/json' -d '{"id":1}'
+
+# 04：MyBatis-Plus 分页（插件自动追加 count 与 limit）
+curl -X POST http://localhost:8084/page/user -H 'Content-Type: application/json' -d '{"current":1,"size":2}'
 
 # 05：参数校验失败（400 + SYS0004，注意业务异常才是 200）
 curl -X POST http://localhost:8085/valid/group/create -H 'Content-Type: application/json' -d '{"id":123,"name":"hyao"}'
@@ -69,7 +74,7 @@ SpringBoot-Learning
 ├── 01-springboot-base               # 01 基础：MVC / REST 控制器
 ├── 02-springboot-advice             # 02 公共能力的示例（依赖 00）
 ├── 03-springboot-mybatis            # 03 MyBatis + Druid（依赖 00）
-├── 04-springboot-mybatis-plus       # 04 预留（依赖 00，暂未纳入 modules）
+├── 04-springboot-mybatis-plus       # 04 MyBatis-Plus（依赖 00，独立库 hyao_mp）
 └── 05-springboot-validation         # 05 参数校验（依赖 00）
 ```
 
@@ -84,8 +89,8 @@ SpringBoot-Learning
 
    | 依赖 | 版本来源 | 为什么 |
    | --- | --- | --- |
-   | `mybatis-spring-boot-starter` | 父 POM 属性 `mybatis-spring-boot.version` | 第三方，BOM 里没有 |
-   | `druid-spring-boot-starter` | 父 POM 属性 `druid-spring-boot.version` | 第三方，BOM 里没有 |
+   | `mybatis-spring-boot-starter` | 父 POM 属性 `mybatis-spring-boot.version`（3.0.4） | 第三方，BOM 里没有；Boot 3 必须用 3.0.x |
+   | `druid-spring-boot-3-starter` | 父 POM 属性 `druid-spring-boot.version`（1.2.23） | Boot 3 专用 starter；旧的 `druid-spring-boot-starter` 里只有 `spring.factories`，Boot 3 不加载 |
    | `00-springboot-common` | `${project.version}` | **自家模块**，跟工程版本走，不能用 `spring.boot.version` |
 
    注意 `dependencyManagement` 只统一**版本**；「要不要依赖」由各模块在自己的 `<dependencies>` 里决定——所以 00 只被 02/03/04/05 依赖，01 故意不依赖。

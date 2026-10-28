@@ -99,7 +99,7 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
     @Override protected ResponseEntity<Object> handleHttpRequestMethodNotSupported(...)  // 405 → SYS0002（带支持的方法）
     @Override protected ResponseEntity<Object> handleNoHandlerFoundException(...)        // 404 → SYS0003
     @Override protected ResponseEntity<Object> handleMethodArgumentNotValid(...)         // 400 → SYS0004（@Valid @RequestBody）
-    @Override protected ResponseEntity<Object> handleBindException(...)                  // 400 → SYS0004（表单/查询对象）
+    @Override protected ResponseEntity<Object> handleHandlerMethodValidationException(...) // 400 → SYS0004（Spring MVC 6.1+ 内置方法校验；类上标 @Validated 时改走下面那条）
     @Override protected ResponseEntity<Object> handleMissingServletRequestParameter(...) // 400 → SYS0004（缺参数）
     @Override protected ResponseEntity<Object> handleHttpMessageNotReadable(...)         // 400 → SYS0004（JSON 解析失败）
     @ExceptionHandler(ConstraintViolationException.class)                                // 400 → SYS0004（@Validated + @RequestParam）
@@ -121,10 +121,10 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
 | `handleHttpRequestMethodNotSupported` | 请求方法不支持 | `405`（带 `Allow`） | `SYS0002`，message 里带「该接口仅支持 GET」 |
 | `handleNoHandlerFoundException` | URL 找不到 Handler（需开启 `spring.mvc.throw-exception-if-no-handler-found`） | `404` | `SYS0003` |
 | `handleMethodArgumentNotValid` | `@Valid @RequestBody` 校验失败 | `400` | `SYS0004` + `字段: 提示` |
-| `handleBindException` | 表单 / 查询参数绑定对象后校验失败 | `400` | `SYS0004` |
+| `handleHandlerMethodValidationException` | **没标**类级 `@Validated` 时，Spring MVC 6.1+ 内置校验（`HandlerMethodValidator`）对 `@RequestParam`/`@PathVariable`/`@RequestHeader` 上的约束判失败 | `400` | `SYS0004`（不带字段路径） |
 | `handleMissingServletRequestParameter` | 缺少必填参数 | `400` | `SYS0004` + 参数名 |
 | `handleHttpMessageNotReadable` | 请求体不是合法 JSON / 字段类型不匹配 | `400` | `SYS0004` |
-| `handleConstraintViolation` | 类上 `@Validated` 时 `@RequestParam`/`@PathVariable` 校验失败 | `400` | `SYS0004` |
+| `handleConstraintViolation` | 类上标了 `@Validated` 时，AOP 代理（`MethodValidationPostProcessor`）对方法参数校验失败 | `400` | `SYS0004`（带 `方法名.参数名` 路径） |
 | `handleMethodArgumentTypeMismatch` | 参数类型转换失败（如 `pageSize=abc`） | `400` | `SYS0005` |
 | `handleExceptionInternal(...)` | 其余框架异常（415 等） | 保留原始状态码 | 4xx → `SYS0006`；5xx → `SYS0001` |
 | `handleException(Exception)` | 未知异常 | `200` | `SYS0001` |
@@ -216,7 +216,7 @@ curl -i -X POST http://localhost:8082/api/user/valid \
 3. **业务异常文案与脱敏**：`new BizException(errorCode, args...)` 由 `MessageFormat` 填充，message 里没有 `{0}` 时参数会被忽略（02 的 `QUERY_ERROR` 特意写成 `"查询错误: {0}"` 来演示）；`Result.fail` 只收 `code`/`message`，是为了不把异常原文回传客户端。
 4. **库不能打成可执行 jar**：那样类会进 `BOOT-INF/classes`，其他模块编译期找不到；本模块没有任何打包插件配置，产物就是普通 jar。
 5. **兜底的 `@ExceptionHandler(Exception.class)` 会接住框架异常**：想让某类异常（如 `DataAccessException`）走自己的逻辑，就单独加一个 advice、用**类级 `@Order`** 排到兜底前面（03 的做法）。
-6. **校验为什么不生效**：约束注解只有被「触发」才生效——`@RequestBody` 参数要标 `@Valid`；`@RequestParam` / `@PathVariable` 上的约束需要**类上**标 `@Validated`（否则静默不校验）；嵌套对象要再加一层 `@Valid`。Boot 2.7 用的是 `javax.validation`，Boot 3 才是 `jakarta.validation`，别混用。
+6. **校验为什么不生效**：约束注解只有被「触发」才生效——`@RequestBody` 参数要标 `@Valid`；`@RequestParam` / `@PathVariable` 上的约束需要**类上**标 `@Validated`（否则静默不校验）；嵌套对象要再加一层 `@Valid`。本项目是 Boot 3，校验注解的包名统一为 `jakarta.validation`（旧的 `javax.validation` 已不再提供）。
 7. **404 有两种处理路径**：开启 `spring.mvc.throw-exception-if-no-handler-found=true` 时走 `handleNoHandlerFoundException`；否则由容器的 `/error` 兜底，也就是 `CommonErrorController`。两条路径的 code 都是 `SYS0003`。
 
 ## 7. 学习笔记

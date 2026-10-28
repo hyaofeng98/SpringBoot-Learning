@@ -2,8 +2,8 @@ package com.hyao.mybatis.model.dict;
 
 import lombok.Data;
 
-import javax.validation.constraints.NotBlank;
-import javax.validation.constraints.Size;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 
 /**
  * 更新字典编码显示名请求。

@@ -18,7 +18,7 @@
 | --- | --- | --- | --- |
 | ✅ | — | **统一响应包装（示例）** | 00 的 `ResponseWrapperAdvice`：`GET /api/hello`、`POST /api/user1` 自动包装成 `Result<T>`；`/api/user2` 用 `@IgnoreWrapper` 跳过；`/api/user3` 已是 `Result` 不重复包装 |
 | ✅ | — | **全局异常处理（示例）** | 00 的 `GlobalExceptionHandler`：业务异常 → `200` + 业务码（`BizException`）；框架异常保留真实状态码：405 → `SYS0002`、404 → `SYS0003`、400 → `SYS0004` / `SYS0005` |
-| ✅ | — | **参数校验（示例）** | 00 的 Bean Validation 统一处理：`POST /api/user/valid` 标 `@Valid`，`name` 必填且不超过 10 个字符、`age` 在 1~150 之间，校验失败 → `400` + `SYS0004`（`参数校验失败: name: 不能为空`）；其它接口没标 `@Valid`，同样的 `User` 不会被校验 |
+| ✅ | — | **参数校验（示例）** | 00 的 Bean Validation 统一处理：`POST /api/user/valid` 标 `@Valid`，`name` 必填且不超过 10 个字符、`age` 在 1~150 之间，校验失败 → `400` + `SYS0004`（`参数校验失败: name: 不能为空`）；其它接口没标 `@Valid`，同样的 `UserEntity` 不会被校验 |
 | ✅ | — | **统一日志（示例）** | 00 的 `TraceIdFilter` + 默认 `logback-spring.xml`：日志与响应头都带 `traceId` |
 | ✅ | — | **自定义业务错误码** | `BizErrorCode implements IErrorCode`（`QRY0001` 查询、`FDL0001` 下载），业务错误码由业务模块自己维护 |
 | ✅ | — | **包装的边界：下载与跳过开关** | `DownloadController` 返回 `ResponseEntity<Resource>`，被 `supports()` 排除；`@IgnoreWrapper`（00 模块）方法级/类级都能标 |
@@ -61,10 +61,10 @@ public class AdviceApplication {
 | 接口 | 返回值 | 包装结果 |
 | --- | --- | --- |
 | `GET /api/hello` | `String` | 包成 `Result`，`Content-Type` 变成 `application/json` |
-| `POST /api/user1` | `User` | 自动包成 `Result<User>` |
-| `POST /api/user2` | `User` + `@IgnoreWrapper` | 不包装，直接返回 User 的 JSON |
+| `POST /api/user1` | `UserEntity` | 自动包成 `Result<User>` |
+| `POST /api/user2` | `UserEntity` + `@IgnoreWrapper` | 不包装，直接返回 User 的 JSON |
 | `POST /api/user3` | `Result<User>` | 已经包好，不重复包装 |
-| `POST /api/user/valid` | `User` + `@Valid` | 校验通过则自动包装；失败由 00 统一返回 `400` + `SYS0004` |
+| `POST /api/user/valid` | `UserEntity` + `@Valid` | 校验通过则自动包装；失败由 00 统一返回 `400` + `SYS0004` |
 
 这几个 POST 的请求体相同：`{ "id": "0001", "name": "hyao", "age": 18, "birthday": "2008-10-11" }`。
 
@@ -79,7 +79,7 @@ public User getUser() {
 }
 ```
 
-没有 try-catch，异常交给 00 的全局异常处理。注意返回类型写的是 `User`，实际响应体是 `Result`——异常路径上返回的是 handler 的返回值，不是这个方法的。
+没有 try-catch，异常交给 00 的全局异常处理。注意返回类型写的是 `UserEntity`，实际响应体是 `Result`——异常路径上返回的是 handler 的返回值，不是这个方法的。
 
 ### 4.4 `DownloadController`（`/download`）
 
@@ -125,7 +125,7 @@ public enum BizErrorCode implements IErrorCode {
 | 请求 | 说明 | 结果 |
 | --- | --- | --- |
 | `GET /api/hello` | `String` 被包装 | `200`，`application/json`，响应头带 `traceId`，body `{"code":"SUC0000","message":"操作成功","data":"Hello World!"}` |
-| `POST /api/user1` | `User` 自动包装 | `200`，`{"code":"SUC0000","message":"操作成功","data":{...}}` |
+| `POST /api/user1` | `UserEntity` 自动包装 | `200`，`{"code":"SUC0000","message":"操作成功","data":{...}}` |
 | `POST /api/user2` | `@IgnoreWrapper` | `200`，裸 User JSON（没有 `code` / `message` 外层） |
 | `POST /api/user3` | 已是 `Result`，不重复包装 | `200`，与 `user1` 结构一致（只有一层 `Result`） |
 | `POST /error/user` | 业务异常 | `200`，`{"code":"QRY0001","message":"查询错误: 查询用户为空！","data":null}` |

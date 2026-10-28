@@ -11,7 +11,7 @@
   - 将使用 `SqlSessionFactoryBean` 创建并注册一个 `SqlSessionFactory` 的实例，并将探测到的 `DataSource` 作为数据源
   - 将创建并注册一个从 `SqlSessionFactory` 中得到的 `SqlSessionTemplate` 的实例
   - 自动扫描你的 mapper，将他们与 `SqlSessionTemplate` 相关联，并将它们注册到 Spring 的环境（context）中去，这样它们就可以被注入到你的 bean 中
-- **`druid-spring-boot-starter`**：把 Druid 接进 Spring Boot——向容器注册 `DruidDataSourceWrapper`（本质是 `DruidDataSource`）作为数据源，并装配监控/过滤器（`stat`、`wall`、`slf4j`）。
+- **`druid-spring-boot-3-starter`**：把 Druid 接进 Spring Boot——向容器注册 `DruidDataSourceWrapper`（本质是 `DruidDataSource`）作为数据源，并装配监控/过滤器（`stat`、`wall`、`slf4j`）。
 
 ## 1. 学习目标
 
@@ -37,7 +37,7 @@
 
 ### 2.2 集成原理
 
-1. **依赖组合**：先弄清三个 starter 各带来什么——`mybatis-spring-boot-starter` 带 MyBatis 本体、`mybatis-spring`（把 MyBatis 接进 Spring 的桥）和它的 autoconfigure；`druid-spring-boot-starter` 带 Druid 本体和 autoconfigure；版本都由父 POM 统一管。
+1. **依赖组合**：先弄清三个 starter 各带来什么——`mybatis-spring-boot-starter` 带 MyBatis 本体、`mybatis-spring`（把 MyBatis 接进 Spring 的桥）和它的 autoconfigure；`druid-spring-boot-3-starter` 带 Druid 本体和 autoconfigure；版本都由父 POM 统一管。
 2. **配置绑定**：`spring.datasource.*` 落到 `DataSourceProperties`，再被 `DruidDataSourceWrapper.afterPropertiesSet()` 取过去 set 到池子上；`spring.datasource.druid.*` 直接通过 `@ConfigurationProperties` 绑到 `DruidDataSource`；`mybatis.*` 落到 `MybatisProperties`；`app.id.*` 落到本模块的 `SnowflakeProperties`（见 §3.2）。
 3. **自动配置装配**：`DruidDataSourceAutoConfigure` 靠 `@AutoConfigureBefore(DataSourceAutoConfiguration)` + `@ConditionalOnMissingBean` 抢在 Boot 原生数据源前面注册 Druid，Hikari 因此退让；`MybatisAutoConfiguration` 再通过 `@ConditionalOnSingleCandidate(DataSource.class)` 拿到容器里唯一的数据源，创建 `SqlSessionFactory` / `SqlSessionTemplate`（见 §4.3.1）。
 4. **Mapper 扫描与代理**：`@MapperScan` 注册 `MapperScannerConfigurer`，为每个接口生成 `MapperFactoryBean`，`getObject()` 返回 JDK 动态代理；它与自动 `@Mapper` 扫描器二选一（见 §4.1）。
@@ -72,7 +72,7 @@
     <!-- Druid 连接池 -->
     <dependency>
         <groupId>com.alibaba</groupId>
-        <artifactId>druid-spring-boot-starter</artifactId>
+        <artifactId>druid-spring-boot-3-starter</artifactId>
     </dependency>
 </dependencies>
 ```
@@ -642,7 +642,7 @@ public Map<String, Object> createOrder(@Valid @RequestBody OrderCreateRequest re
 
 一句话：`MybatisAutoConfiguration` 拿容器里**唯一**的 `DataSource` Bean 去建 `SqlSessionFactory`（`@ConditionalOnSingleCandidate(DataSource.class)`），而那个 Bean 就是 §4.3.1 注册的 `DruidDataSourceWrapper`——MyBatis 只依赖 `javax.sql.DataSource` 接口，换成 Hikari/DBCP 也只是换 starter + 配置的事。
 
-下面把一次 Mapper 调用从借连接到还连接的路径捋清楚（类名/方法名都在本项目实际版本上核对过：mybatis-spring 2.1.2 / mybatis 3.5.14 / druid 1.2.23 / spring-jdbc 5.3.31）：
+下面把一次 Mapper 调用从借连接到还连接的路径捋清楚（类名/方法名都在本项目实际版本上核对过：mybatis-spring 3.0.4 / mybatis 3.5.17 / druid 1.2.23 / spring-jdbc 6.2.19）：
 
 | 层                       | 类                                                                      | 作用                                                                                                                                                                             |
 | ------------------------ | ----------------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |

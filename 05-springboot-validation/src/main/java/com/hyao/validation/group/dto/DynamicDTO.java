@@ -5,7 +5,7 @@ import com.hyao.validation.group.groups.OtherGroup;
 import lombok.Data;
 import org.hibernate.validator.group.GroupSequenceProvider;
 
-import javax.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotBlank;
 
 /**
  * 校验逻辑: 类型不能为空, 类型为其他 {@code "OTHER"} 时, 说明字段不能为空.

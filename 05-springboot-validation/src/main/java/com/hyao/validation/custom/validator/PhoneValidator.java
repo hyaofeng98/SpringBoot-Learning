@@ -2,8 +2,8 @@ package com.hyao.validation.custom.validator;
 
 import com.hyao.validation.custom.annotation.Phone;
 
-import javax.validation.ConstraintValidator;
-import javax.validation.ConstraintValidatorContext;
+import jakarta.validation.ConstraintValidator;
+import jakarta.validation.ConstraintValidatorContext;
 import java.util.regex.Pattern;
 
 /**
