@@ -802,6 +802,7 @@ curl -X POST http://localhost:8083/dict/updateName \
 | 翻页重复或漏数据 | 游标语义要一致：本模块 `nextCursor` 是「多查一条」的 id，SQL 用 `id <= lastId`；换成 `id <` 就要把游标改成当前页最后一条 |
 | `resultType="map"` 的 key 是 `user_id`、`status` 是数字 | 驼峰映射与 TypeHandler 只作用于实体；需要驼峰/枚举就返回实体，或用 `<resultMap>` |
 | `Invalid bound statement (not found)` | `namespace` / statement `id` 与接口对不上，或 `mapper-locations` 没匹配到 XML |
+| 路径末尾多一个斜杠 → 404 | Boot 3 / Spring 6 默认关闭尾部斜杠匹配，`/order/detail/` 不再匹配 `@PostMapping("/detail")` |
 | 枚举查出来报 `BIZ0001` | 库里值不在枚举范围（`OrderStatus` 0~4 / `SkuStatus` 0~1）；补枚举值或清洗数据 |
 | 持久层异常返回 `SYS0001` 而不是 `DBE0001` | `DbExceptionHandler` 的 `@Order(1)` 标在方法上不生效；把 `@Order` 移到**类上** |
 | 打开 `/druid` 报 `{"code":"SYS0003","message":"接口不存在: /druid"}` | YAML 缩进写错，`stat-view-servlet` 被嵌进 `filter` 下面（成了 `druid.filter.stat-view-servlet`），监控 Servlet 没注册。`stat-view-servlet`、`web-stat-filter`、`aop-patterns` 必须是 `spring.datasource.druid` 的直接子节点，与 `filter` **同级** |

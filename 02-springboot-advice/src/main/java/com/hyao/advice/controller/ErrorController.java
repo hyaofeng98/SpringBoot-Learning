@@ -18,7 +18,7 @@ public class ErrorController {
      * 演示全局异常处理效果。
      * <pre>
      *     请求示例：
-     *     GET http://localhost:8081/error/user
+     *     POST http://localhost:8082/error/user
      * </pre>
      *
      * @return 异常演示结果

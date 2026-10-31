@@ -160,7 +160,9 @@ curl -i -X POST http://localhost:8081/api/user/body/object \
 | 启动报端口被占用 | 同一端口只能跑一个实例，先停掉占用端口的进程 |
 | `Cannot construct instance of ...` | POJO 缺无参构造：`@Builder` 必须配 `@NoArgsConstructor` |
 | 拿到的是视图名/HTML 而不是 JSON | 视图控制器返回的是视图名；要 JSON 用 `@RestController` 或加 `@ResponseBody` |
-| 代码注释里的示例写着 POST | `MyRestController` 注释把 `/api/hello`、`/api/user` 的示例写成了 POST，**以注解为准**：`/api/hello` 是 `@GetMapping` |
+| 代码注释里的示例写着 POST | 已修正为 GET：`/api/hello` 是 `@GetMapping`，以注解为准 |
+| `GET /api/hello/`（末尾多一个斜杠）返回 404 | Boot 3 / Spring 6 起默认关闭尾部斜杠匹配，路径必须与注解完全一致；`/api/hello/` 会被当成静态资源（`NoResourceFoundException`） |
+| 404 返回的是 Boot 默认错误 JSON（带 `trace` 字段） | 01 不依赖 00，没有统一异常处理，也没有 `/error` 兜底；`trace`/`message` 字段是 devtools 在开发期打开的 `server.error.include-stacktrace=always` 带来的 |
 
 ## 7. 学习笔记
 

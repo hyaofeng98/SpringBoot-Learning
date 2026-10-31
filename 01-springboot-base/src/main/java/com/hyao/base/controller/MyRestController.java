@@ -3,6 +3,7 @@ package com.hyao.base.controller;
 import com.hyao.base.model.User;
 import org.springframework.web.bind.annotation.*;
 
+import java.time.Clock;
 import java.time.LocalDate;
 import java.util.LinkedHashMap;
 import java.util.Map;
@@ -36,7 +37,7 @@ public class MyRestController {
      *
      * <pre>
      *     调用示例：
-     *     POST /api/hello
+     *     GET /api/hello
      * </pre>
      *
      * @return 返回字符串，返回String时由 {@code StringHttpMessageConverter} 写回， Content-Type为 text/plain。
@@ -61,8 +62,8 @@ public class MyRestController {
         userMap.put("id", "0001");
         userMap.put("name", "hyao");
         userMap.put("age", 18);
-        // 关于 LocalDate 日期类的序列化格式，需要另外配置jackson
-        userMap.put("birthday", LocalDate.now().plusYears(-18));
+        // 关于 LocalDate 日期类的序列化格式，需要另外配置 jackson
+        userMap.put("birthday", LocalDate.now(Clock.systemDefaultZone()).plusYears(-18));
         return userMap;
     }
 

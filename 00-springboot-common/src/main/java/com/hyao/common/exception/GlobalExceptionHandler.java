@@ -24,6 +24,7 @@ import org.springframework.web.method.annotation.HandlerMethodValidationExceptio
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.NoHandlerFoundException;
 import org.springframework.web.servlet.mvc.method.annotation.ResponseEntityExceptionHandler;
+import org.springframework.web.servlet.resource.NoResourceFoundException;
 
 import jakarta.validation.ConstraintViolationException;
 import java.util.List;
@@ -70,6 +71,32 @@ public class GlobalExceptionHandler extends ResponseEntityExceptionHandler {
         log.warn("HttpRequestMethodNotSupportedException: [{}] {}", SysErrorCode.METHOD_NOT_SUPPORTED.getCode(), message);
         return new ResponseEntity<>(Result.fail(SysErrorCode.METHOD_NOT_SUPPORTED.getCode(), message),
                 headers, HttpStatus.METHOD_NOT_ALLOWED);
+    }
+
+    /**
+     * 404：找不到处理器。需要显式开启 {@code spring.mvc.throw-exception-if-no-handler-found=true} 才会抛出。
+     */
+    @Override
+    protected ResponseEntity<Object> handleNoHandlerFoundException(NoHandlerFoundException ex, HttpHeaders headers,
+                                                                   HttpStatusCode status, WebRequest request) {
+        String message = SysErrorCode.HANDLER_NOT_FOUND.getMessage() + ": " + ex.getRequestURL();
+        log.warn("NoHandlerFoundException: [{}] {}", SysErrorCode.HANDLER_NOT_FOUND.getCode(), message);
+        return new ResponseEntity<>(Result.fail(SysErrorCode.HANDLER_NOT_FOUND.getCode(), message),
+                headers, HttpStatus.NOT_FOUND);
+    }
+
+    /**
+     * 404：路径 / 静态资源不存在。Spring 6.1+ 起找不到处理器时抛的是 {@link NoResourceFoundException}
+     * （不再是 {@code NoHandlerFoundException}），不覆盖这个钩子的话 404 会走
+     * {@link #handleExceptionInternal}，返回 {@link SysErrorCode#REQUEST_ERROR}，语义不对。
+     */
+    @Override
+    protected ResponseEntity<Object> handleNoResourceFoundException(NoResourceFoundException ex, HttpHeaders headers,
+                                                                    HttpStatusCode status, WebRequest request) {
+        String message = SysErrorCode.HANDLER_NOT_FOUND.getMessage() + ": " + ex.getResourcePath();
+        log.warn("NoResourceFoundException: [{}] {}", SysErrorCode.HANDLER_NOT_FOUND.getCode(), message);
+        return new ResponseEntity<>(Result.fail(SysErrorCode.HANDLER_NOT_FOUND.getCode(), message),
+                headers, HttpStatus.NOT_FOUND);
     }
 
     /**

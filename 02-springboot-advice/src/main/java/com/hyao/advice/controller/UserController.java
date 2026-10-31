@@ -18,7 +18,7 @@ public class UserController {
      * 演示返回字符串响应的数据包装效果。
      * <pre>
      *     请求示例：
-     *     GET http://localhost:8081/api/hello
+     *     GET http://localhost:8082/api/hello
      * </pre>
      * @return 字符串响应
      */
@@ -31,7 +31,7 @@ public class UserController {
      * 演示返回POJO对象响应的数据包装效果。
      * <pre>
      *     请求示例：
-     *     POST http://localhost:8081/api/user1
+     *     POST http://localhost:8082/api/user1
      *
      *     Content-Type: application/json
      *     { "id": 1, "name": "hyao", "age": 18, "birthday": "2000-01-01" }
@@ -55,7 +55,7 @@ public class UserController {
      * 演示 {@code @IgnoreWrapper} 跳过包装的效果。
      * <pre>
      *     请求示例：
-     *     POST http://localhost:8081/api/user2
+     *     POST http://localhost:8082/api/user2
      *
      *     Content-Type: application/json
      *     { "id": 1, "name": "hyao", "age": 18, "birthday": "2000-01-01" }
@@ -79,7 +79,7 @@ public class UserController {
      * 演示返回结果已包装响应的包装效果。
      * <pre>
      *     请求示例：
-     *     POST http://localhost:8081/api/user3
+     *     POST http://localhost:8082/api/user3
      *
      *     Content-Type: application/json
      *     { "id": 1, "name": "hyao", "age": 18, "birthday": "2000-01-01" }

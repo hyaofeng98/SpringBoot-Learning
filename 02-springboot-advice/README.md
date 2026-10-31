@@ -146,6 +146,7 @@ public enum BizErrorCode implements IErrorCode {
 - **业务异常与框架异常的 HTTP 状态码不一样**：业务异常 `200` + 业务码；框架异常（405/404/400/415…）保留状态码 + 细分后的系统码（`SYS0002` 方法不支持、`SYS0003` 接口不存在、`SYS0004` 参数校验失败、`SYS0005` 类型不匹配、`SYS0006` 其余 4xx）。前端只看状态码会把两者混在一起，所以约定是「业务看 code、协议看 status」。
 - **`DownloadController` 的 404 不走全局异常处理**：`ResponseEntity.notFound()` 是主动返回的响应，不是异常。
 - **`@IgnoreWrapper` 靠运行时反射读**：注解必须是 `@Retention(RUNTIME)`（00 模块已如此定义），否则 `supports()` 读不到。
+- **路径末尾多一个斜杠就是 404**：Boot 3 / Spring 6 默认关闭尾部斜杠匹配（`setUseTrailingSlashMatch` 已移除），`GET /api/hello/` 会被当成静态资源、抛 `NoResourceFoundException`，返回 `404 + SYS0003`；路径必须与注解完全一致。
 
 ## 7. 学习笔记
 
